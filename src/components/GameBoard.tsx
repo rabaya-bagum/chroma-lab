@@ -73,6 +73,19 @@ function findUndoMove(shown: GameState, target: GameState) {
   return { from, to, amount };
 }
 
+/**
+ * If the step from `shown` back to `target` undoes a mixing pour, the colours
+ * of the drop that returns to `to` and of the unit that reappears under it.
+ */
+function mixUndo(shown: GameState, target: GameState, from: number, to: number) {
+  if (!shown.mix) return null;
+  const tf = target.tubes[from].liquids, tt = target.tubes[to].liquids;
+  const sf = shown.tubes[from].liquids;
+  if (tf.length === 0 || tt.length === 0 || sf.length !== tf.length + 1) return null;
+  const under = tf[tf.length - 1].color, poured = tt[tt.length - 1].color;
+  return mixResult(shown.mix, poured, under) === sf[sf.length - 1].color ? { poured, under } : null;
+}
+
 export function GameBoard(props: Props) {
   const { current, events, selected, shake, onTap, onBackgroundTap } = props;
   const settings = useSettingsStore();
@@ -291,6 +304,14 @@ export function GameBoard(props: Props) {
         color, hex: palette[color], total: slide ? REDUCED_MS : tl.total, tl, target, dir,
         src, dst, tubeW: l.tubeW, tubeH: l.tubeH, unitH: l.unitH,
       };
+      const mixed = events.find((e): e is Extract<GameEvent, { type: 'mixed' }> => e.type === 'mixed');
+      if (mixed && S.tubes[to].liquids.length > 0) {
+        // the arriving drop and the unit it lands on both blend into the new colour
+        const under = S.tubes[to].liquids[S.tubes[to].liquids.length - 1].color;
+        pl.arriveHex = palette[mixed.result];
+        pl.arriveName = mixed.result;
+        pl.fade = { tube: to, slot: pl.dstStart - 1, from: palette[under], to: palette[mixed.result], fromName: under, toName: mixed.result };
+      }
       props.onPourStart?.(events);
       play(pl, current, events);
       return;
@@ -307,6 +328,14 @@ export function GameBoard(props: Props) {
           color, hex: palette[color], total: reduce ? REDUCED_MS : UNDO_MS, tl,
           target: { dx: 0, dy: 0, angle: 0 }, dir: 1, src, dst, tubeW: l.tubeW, tubeH: l.tubeH, unitH: l.unitH,
         };
+        const back = mixUndo(S, current, m.from, m.to);
+        if (back) {
+          // undoing a mix: the two result units split back into the drop and the unit it landed on
+          pl.hex = palette[back.poured];
+          pl.srcHex = palette[color];
+          pl.srcName = color;
+          pl.fade = { tube: m.from, slot: current.tubes[m.from].liquids.length - 1, from: palette[color], to: palette[back.under], fromName: color, toName: back.under };
+        }
         play(pl, current, []);
         return;
       }

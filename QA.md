@@ -73,3 +73,4 @@ For frame rate, audio, splash, persistence and other hardware-only checks see `d
 - [ ] Screen reader: with a tube selected, tubes announce "pouring here mixes purple"; a mix announces "Mixed red with blue into two purple".
 - [ ] Levels 56-65 are all completable; 60 shows the reactor meter; 62 and 64 mix with hidden layers; 65 has a locked tube.
 - [ ] The daily experiment never offers mixing.
+- [ ] A mixing pour blends the dropped colour and the unit it lands on into the new colour while pouring; Undo reverses it; patterns/labels switch at the halfway point; Reduce Motion shows a short slide with the same blend.

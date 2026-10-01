@@ -169,3 +169,13 @@ describe('chapter 6', () => {
     expect(needsMixing(level!)).toBe(false);
   });
 });
+
+describe('solver entry points', () => {
+  it('refuses to model a mixing state without its level instead of solving it as a classic board', () => {
+    const { createSearch } = jest.requireActual('../../src/game/solver') as typeof import('../../src/game/solver');
+    const level = mixLevel(['RR', 'BB', '']);
+    const state = createInitialState(level);
+    expect(createSearch(state, 1, 1000)).toBeNull();
+    expect(createSearch(state, 1, 1000, level)).not.toBeNull();
+  });
+});

@@ -10,5 +10,13 @@ module.exports = defineConfig([
       'react-hooks/immutability': 'off',
     },
   },
+  {
+    // Plain Node scripts (CommonJS) run outside Metro.
+    files: ['scripts/**/*.js'],
+    languageOptions: {
+      sourceType: 'commonjs',
+      globals: { __dirname: 'readonly', require: 'readonly', process: 'readonly', console: 'readonly', module: 'writable' },
+    },
+  },
   { ignores: ['dist/*', 'public/*', '.expo/*'] },
 ]);

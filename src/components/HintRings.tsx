@@ -14,7 +14,7 @@ function Ring({ cell }: { cell: Cell }) {
     t.value = withRepeat(withTiming(1, { duration: 800, easing: Easing.inOut(Easing.quad) }), -1, true);
   }, [reduce, t]);
   const style = useAnimatedStyle(() => ({ opacity: 0.45 + 0.55 * t.value, transform: [{ scale: 1 + 0.04 * t.value }] }));
-  return <Animated.View pointerEvents="none" style={[styles.ring, { left: cell.x + 2, top: cell.y + 2, width: cell.w - 4, height: cell.h - 4 }, style]} />;
+  return <Animated.View style={[styles.ring, { pointerEvents: 'none' }, { left: cell.x + 2, top: cell.y + 2, width: cell.w - 4, height: cell.h - 4 }, style]} />;
 }
 
 /** Pulsing rings over tube cells (tutorial now, hints in Phase 4). */

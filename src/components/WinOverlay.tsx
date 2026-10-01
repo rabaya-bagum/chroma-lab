@@ -55,6 +55,7 @@ export function WinOverlay({ result, hasNext, onNext, onReplay, onLevels }: Prop
           <Text style={styles.earned}>EARNED</Text>
           <CoinDisplay coins={coins} />
         </View>
+        {result.reactorBonus > 0 && <Text maxFontSizeMultiplier={1.3} style={styles.newBest} accessibilityLabel={`Reactor bonus ${result.reactorBonus} coins`}>REACTOR BONUS  +{result.reactorBonus}</Text>}
         {result.achievements.map((a) => (
           <View key={a.id} style={styles.ach} accessible accessibilityLabel={`Achievement unlocked: ${a.name}, ${a.reward} coins`}>
             <Icon name="hint" size={16} color="#FFD84D" />

@@ -94,7 +94,9 @@ describe('laboratory', () => {
     expect(LAB_EQUIPMENT.map((e) => [e.id, e.stars])).toEqual([
       ['microscope', 10], ['centrifuge', 25], ['computer', 45], ['arm', 65], ['quantum', 100], ['reactor', 140], ['hologram', 180],
     ]);
-    expect(LAB_EQUIPMENT.filter((e) => e.mvp).every((e) => e.stars <= 75)).toBe(true);
+    const maxStars = LEVELS.length * 3;
+    expect(LAB_EQUIPMENT.filter((e) => e.mvp).every((e) => e.stars <= maxStars)).toBe(true);
+    expect(LAB_EQUIPMENT.filter((e) => !e.mvp).map((e) => e.id)).toEqual(['hologram']);
   });
   it('earnedEquipment follows the star total', () => {
     expect(earnedEquipment(9)).toEqual([]);

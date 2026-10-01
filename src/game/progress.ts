@@ -1,5 +1,6 @@
 import { ECONOMY } from '../config/economy';
 import { ACHIEVEMENTS, evaluateAchievements } from '../data/achievements';
+import { reactorBonus } from './reactor';
 import { calculateStars } from './scoring';
 import { recomputeDerived } from './save';
 import type { GameSave } from './save';
@@ -19,8 +20,10 @@ export interface CompletionResult {
   isNewBest: boolean;
   firstCompletion: boolean;
   firstThreeStars: boolean;
-  /** Coins from the level itself (before achievements). */
+  /** Coins from the level itself (before achievements), including any reactor bonus. */
   levelCoins: number;
+  /** Reactor level bonus included in `levelCoins` (0 if none or already earned). */
+  reactorBonus: number;
   achievements: { id: string; name: string; reward: number }[];
   /** All coins added by this completion. */
   coinsEarned: number;
@@ -51,9 +54,15 @@ export function completeLevel(
   const isNewBest = !!prev?.bestMoves && run.moves < prev.bestMoves;
   const bestMoves = Math.min(prev?.bestMoves ?? Infinity, run.moves);
 
+  // The reactor bonus is paid once: if an earlier run already finished within the limit, it is not paid again.
+  const limit = level.rules?.reactor?.moveLimit;
+  const alreadyEarned = limit !== undefined && prev?.bestMoves !== undefined && prev.bestMoves <= limit;
+  const reactor = alreadyEarned ? 0 : reactorBonus(level, run.moves);
+
   const levelCoins =
     (firstCompletion ? ECONOMY.firstCompletion : ECONOMY.replayCompletion) +
-    (firstThreeStars ? ECONOMY.firstThreeStars : 0);
+    (firstThreeStars ? ECONOMY.firstThreeStars : 0) +
+    reactor;
 
   const record = {
     stars: Math.max(prev?.stars ?? 0, stars) as 0 | 1 | 2 | 3,
@@ -97,6 +106,7 @@ export function completeLevel(
       firstCompletion,
       firstThreeStars,
       levelCoins,
+      reactorBonus: reactor,
       achievements,
       coinsEarned: levelCoins + achievementCoins,
       starsGained: next.progress.starsTotal - save.progress.starsTotal,

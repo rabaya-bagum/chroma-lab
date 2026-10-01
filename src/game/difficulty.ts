@@ -1,4 +1,5 @@
 import type { Difficulty, LiquidColor } from './types';
+import type { MechSpec, Recipe } from './mechGenerator';
 import type { LevelSpec } from './generator';
 
 const C: LiquidColor[] = ['red', 'blue', 'green', 'yellow', 'purple', 'orange', 'cyan', 'pink'];
@@ -52,3 +53,67 @@ export const LEVEL_SPECS: LevelSpec[] = Object.keys(windows)
     optMin: windows[n][0],
     optMax: windows[n][1],
   }));
+
+// --- chapters 3-5: mechanics (section 11) ---------------------------------------
+
+
+const reactor = { slack: 4, bonusCoins: 50 } as const;
+
+type Row = [number, Recipe, [number, number], Difficulty?];
+
+/**
+ * Levels 26-55. Chapter 3 Cryogenic Lab (frozen liquid), chapter 4 Unknown
+ * Compounds (mystery liquid), chapter 5 Quantum Chemistry (catalysts and locked
+ * tubes). Reactor levels are 30, 40 and 50: one per ten levels (section 11.5).
+ * Windows are target optimal moves, tuned from exact solves of random deals.
+ */
+const rows: Row[] = [
+  // chapter 3
+  [26, { colors: 4, empties: 2, frozen: { tubes: 1, layers: 1, cond: 'moves' } }, [9, 14]],
+  [27, { colors: 4, empties: 2, frozen: { tubes: 1, layers: 2, cond: 'moves' } }, [11, 14]],
+  [28, { colors: 4, empties: 2, frozen: { tubes: 2, layers: 1, cond: 'tubes' } }, [11, 15]],
+  [29, { colors: 5, empties: 2, frozen: { tubes: 1, layers: 2, cond: 'tubes' } }, [13, 17]],
+  [30, { colors: 5, empties: 2, frozen: { tubes: 2, layers: 1, cond: 'moves' }, reactor }, [14, 18]],
+  [31, { colors: 5, empties: 2, frozen: { tubes: 2, layers: 2, cond: 'color' } }, [14, 18]],
+  [32, { colors: 5, empties: 2, frozen: { tubes: 2, layers: 2, cond: 'tubes' } }, [15, 18]],
+  [33, { colors: 6, empties: 2, frozen: { tubes: 1, layers: 2, cond: 'moves' } }, [17, 20]],
+  [34, { colors: 6, empties: 2, frozen: { tubes: 2, layers: 1, cond: 'tubes' } }, [17, 21]],
+  [35, { colors: 6, empties: 2, frozen: { tubes: 2, layers: 2, cond: 'moves' } }, [18, 21]],
+  // chapter 4
+  [36, { colors: 4, empties: 2, hidden: { tubes: 2 } }, [11, 14]],
+  [37, { colors: 4, empties: 2, hidden: { tubes: 3 } }, [12, 14], 'hard'],
+  [38, { colors: 4, empties: 2, hidden: { tubes: 'all' } }, [13, 15], 'hard'],
+  [39, { colors: 5, empties: 2, hidden: { tubes: 3 } }, [15, 18], 'expert'],
+  [40, { colors: 5, empties: 2, hidden: { tubes: 4 }, reactor }, [16, 18], 'expert'],
+  [41, { colors: 5, empties: 2, hidden: { tubes: 'all' } }, [17, 19], 'expert'],
+  [42, { colors: 6, empties: 2, hidden: { tubes: 3 } }, [18, 21], 'expert'],
+  [43, { colors: 6, empties: 2, hidden: { tubes: 4 } }, [19, 21], 'expert'],
+  [44, { colors: 6, empties: 2, hidden: { tubes: 'all' } }, [20, 22], 'expert'],
+  [45, { colors: 6, empties: 2, hidden: { tubes: 'all' } }, [21, 23], 'expert'],
+  // chapter 5
+  [46, { colors: 4, empties: 1, locked: { empty: 1, cond: 'moves' } }, [10, 15]],
+  [47, { colors: 4, empties: 2, locked: { empty: 1, cond: 'moves' }, catalyst: { effect: 'unlock' } }, [9, 13]],
+  [48, { colors: 5, empties: 2, locked: { filled: 1, cond: 'tubes' } }, [14, 17]],
+  [49, { colors: 5, empties: 2, frozen: { tubes: 1, layers: 2, cond: 'moves' }, catalyst: { effect: 'thaw' } }, [14, 17]],
+  [50, { colors: 5, empties: 2, locked: { filled: 1, cond: 'moves' }, catalyst: { effect: 'unlock' }, reactor }, [15, 18]],
+  [51, { colors: 5, empties: 2, hidden: { tubes: 3 }, catalyst: { effect: 'reveal' } }, [15, 18]],
+  [52, { colors: 6, empties: 2, locked: { empty: 1, cond: 'moves' }, catalyst: { effect: 'unlock' } }, [17, 21]],
+  [53, { colors: 6, empties: 2, frozen: { tubes: 1, layers: 2, cond: 'moves' }, catalyst: { effect: 'thaw' } }, [18, 21]],
+  [54, { colors: 6, empties: 1, locked: { empty: 1, filled: 1, cond: 'moves' } }, [17, 21]],
+  [55, { colors: 6, empties: 2, hidden: { tubes: 'all' }, catalyst: { effect: 'reveal' } }, [19, 22]],
+];
+
+function mechDifficulty(n: number, given?: Difficulty): Difficulty {
+  return given ?? (n <= 35 ? 'hard' : n <= 38 ? 'hard' : 'expert');
+}
+
+export const mechChapterFor = (n: number) => (n <= 35 ? 3 : n <= 45 ? 4 : 5);
+
+export const MECH_SPECS: MechSpec[] = rows.map(([number, recipe, [optMin, optMax], difficulty]) => ({
+  number,
+  chapter: mechChapterFor(number),
+  difficulty: mechDifficulty(number, difficulty),
+  recipe,
+  optMin,
+  optMax,
+}));

@@ -48,3 +48,15 @@
 - [ ] Cosmetics apply on the game board, Home background and Laboratory, and persist across relaunch.
 - [ ] Laboratory: Microscope appears at 10 stars, Centrifuge at 25, Research Computer at 45, Robotic Arm at 65; unlocked pieces animate in and idle; locked ones are silhouettes with thresholds; the three future pieces say "Future chapters"; Reduce Motion keeps everything still.
 - [ ] A completion that unlocks something shows a toast (new collection item or laboratory upgrade) after the results appear.
+
+## Phase 5
+- [ ] Chapters 3-5 appear in Level Select (26-35, 36-45, 46-55) and unlock in order after level 25.
+- [ ] Frozen liquid (level 26): frozen layers show frost and cracks and cannot be tapped or poured onto; liquid above them moves; when the condition in the rules line is met the frost melts with a warm glow and the tube becomes usable.
+- [ ] Mystery liquid (level 36): hidden layers are dark with a "?"; uncovering one dissolves it into its colour with a sparkle; screen readers say "unknown" for hidden layers.
+- [ ] Locked tubes (level 46): padlock with a live counter ("3/7 moves", "1/2 tubes", or a colour); the tube cannot be selected or poured into; at the condition the lock swells and fades and the tube accepts liquid.
+- [ ] Catalysts (levels 47, 49, 51): a tube with a pulsing coloured core; pouring its colour in for the first time shows a ring burst, an arc to the target, then the unlock, thaw or reveal; pouring the colour again does nothing.
+- [ ] Undo reverses every mechanic (re-freezes, re-hides, re-locks, un-spends the catalyst). Restart, + TUBE, hint, kill-and-resume all work on mechanic levels.
+- [ ] Reactor (levels 30, 40, 50): the meter fills per move and never counts time; solving within the limit shows REACTOR BONUS on the results (once per level); going past the limit shows STABILISED and the level can still be finished.
+- [ ] Each mechanic level shows its rules in plain language under the top bar; with Reduce Motion the arcs and dissolves are replaced by instant changes.
+- [ ] Hints on mechanic levels return a legal move or "No hint available right now" (the search may time out on the hardest ones); they never block animation.
+- [ ] Performance: pours with frost, veils and padlocks on screen stay smooth on a mid-range Android phone.

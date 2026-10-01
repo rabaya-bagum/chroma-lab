@@ -1,10 +1,10 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import {
-  BlurMask, Group, LinearGradient, Path, Rect, RoundedRect, Skia, Text as SkText, vec,
+  BlurMask, Circle, Group, LinearGradient, Path, Rect, RoundedRect, Skia, Text as SkText, vec,
 } from '@shopify/react-native-skia';
 import type { SkFont, SkPath } from '@shopify/react-native-skia';
 import {
-  Easing, useDerivedValue, useSharedValue, withSequence, withTiming,
+  Easing, useDerivedValue, useSharedValue, withDelay, withSequence, withTiming,
 } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import { COLOR_LETTERS } from '../game/levelCodec';
@@ -16,6 +16,8 @@ import type { PatternKind } from './patterns';
 import { planProgress, slotFillAt } from './plan';
 import type { Plan } from './plan';
 import { poseAt } from './pourGeometry';
+import { crackPath, questionPath, shacklePath } from './marks';
+import { bitsOf, hasBit, mixHex } from './mix';
 import { facetPath } from './skins';
 import type { TubeSkin } from './skins';
 
@@ -48,13 +50,25 @@ export interface TubeCanvasProps {
   shakeNonce: number;
   flourishNonce: number;
   wobbleNonce: number;
+  /** Trigger colour of a catalyst tube (draws its energy core). */
+  catalystHex?: string;
+  /** Delay (ms) before reveal, thaw and unlock animations, so a catalyst arc can arrive first. */
+  fxDelay?: number;
 }
 
 export const LIFT = 12;
 const KINDS: PatternKind[] = ['circles', 'diagonal', 'dots', 'grid', 'diamonds', 'waves', 'lines', 'chevrons'];
 const ACCENT = '#27E3F2';
+const HIDDEN_HEX = '#151C36';
+const FROST_HEX = '#CDE8FF';
 
-interface SlotView { y: number; h: number; color: string; name: string; fill: number; hex: string }
+interface SlotView {
+  y: number; h: number; color: string; name: string; fill: number; hex: string;
+  /** 0..1 how much the mystery veil covers this layer. */
+  veil: number;
+  /** 0..1 frost over this layer. */
+  frost: number;
+}
 
 export const TubeCanvas = React.memo(function TubeCanvas(p: TubeCanvasProps) {
   const { index, tube, x, y, tubeW, tubeH, unitH, anim, palette, reduceMotion, skin } = p;
@@ -113,6 +127,59 @@ export const TubeCanvas = React.memo(function TubeCanvas(p: TubeCanvasProps) {
     capT.value = withTiming(tube.sealed ? 1 : 0, { duration: reduceMotion ? 120 : 260, easing: Easing.out(Easing.cubic) });
   }, [tube.sealed, reduceMotion, capT]);
 
+  // --- mechanics: mystery veil, frost, lock ------------------------------------
+  const fxDelay = reduceMotion ? 0 : p.fxDelay ?? 0;
+  const hiddenBits = useMemo(() => bitsOf(tube.liquids, (l) => l.hidden), [tube.liquids]);
+  const frozenBits = useMemo(() => bitsOf(tube.liquids, (l) => l.frozen), [tube.liquids]);
+  const hideMask = useSharedValue(hiddenBits);
+  const revealBits = useSharedValue(0);
+  const revealT = useSharedValue(1);
+  const frostMask = useSharedValue(frozenBits);
+  const frostT = useSharedValue(frozenBits ? 1 : 0);
+  const warm = useSharedValue(0);
+  const lockT = useSharedValue(tube.locked ? 1 : 0);
+  const prev = useRef({ hidden: hiddenBits, frozen: frozenBits, locked: tube.locked });
+
+  useEffect(() => {
+    const before = prev.current.hidden;
+    prev.current.hidden = hiddenBits;
+    const revealed = before & ~hiddenBits;
+    if (revealed && !reduceMotion) {
+      hideMask.value = before;           // keep the veil until the dissolve plays
+      revealBits.value = revealed;
+      revealT.value = 0;
+      revealT.value = withDelay(fxDelay, withTiming(1, { duration: 520, easing: Easing.out(Easing.quad) }, (done) => {
+        if (done) { hideMask.value = hiddenBits; revealBits.value = 0; }
+      }));
+    } else {
+      hideMask.value = hiddenBits;
+      revealBits.value = 0;
+    }
+  }, [hiddenBits, reduceMotion, fxDelay, hideMask, revealBits, revealT]);
+
+  useEffect(() => {
+    const before = prev.current.frozen;
+    prev.current.frozen = frozenBits;
+    if (before && !frozenBits && !reduceMotion) {
+      frostMask.value = before;
+      frostT.value = 1;
+      frostT.value = withDelay(fxDelay, withTiming(0, { duration: 700, easing: Easing.inOut(Easing.quad) }, (done) => {
+        if (done) frostMask.value = 0;
+      }));
+      warm.value = withDelay(fxDelay, withSequence(withTiming(1, { duration: 280 }), withTiming(0, { duration: 700 })));
+    } else {
+      frostMask.value = frozenBits;
+      frostT.value = frozenBits ? 1 : 0;
+    }
+  }, [frozenBits, reduceMotion, fxDelay, frostMask, frostT, warm]);
+
+  useEffect(() => {
+    const before = prev.current.locked;
+    prev.current.locked = tube.locked;
+    if (before && !tube.locked && !reduceMotion) lockT.value = withDelay(fxDelay, withTiming(0, { duration: 520, easing: Easing.out(Easing.quad) }));
+    else lockT.value = tube.locked ? 1 : 0;
+  }, [tube.locked, reduceMotion, fxDelay, lockT]);
+
   // --- pose of the whole tube -------------------------------------------------
   const pose = useDerivedValue(() => {
     const pl = anim.plan.value;
@@ -142,12 +209,26 @@ export const TubeCanvas = React.memo(function TubeCanvas(p: TubeCanvasProps) {
       let hex = k < len ? palette[names[k]] : '';
       if (pl && pl.to === index && k >= pl.dstStart && k < pl.dstStart + pl.amount) { name = pl.color; hex = pl.hex; }
       if (pl && pl.from === index && k >= pl.srcKeep && k < pl.srcKeep + pl.amount) { name = pl.color; hex = pl.hex; }
+      let veil = 0;
+      if (k < len && hasBit(hideMask.value, k)) {
+        if (hasBit(revealBits.value, k)) {
+          // dissolve: the dark veil fades into the true colour
+          veil = 1 - revealT.value;
+          hex = mixHex(HIDDEN_HEX, hex, revealT.value);
+          if (revealT.value < 0.5) name = '';
+        } else {
+          veil = 1;
+          hex = HIDDEN_HEX;
+          name = '';
+        }
+      }
+      const frost = k < len && hasBit(frostMask.value, k) ? frostT.value : 0;
       const h = fill * unitH;
-      out.push({ y: tubeH - TUBE_PAD - used - h, h, color: hex || '#000000', name, fill, hex });
+      out.push({ y: tubeH - TUBE_PAD - used - h, h, color: hex || '#000000', name, fill, hex, veil, frost });
       used += h;
     }
     return out;
-  }, [names, cap, len, palette, unitH, tubeH]);
+  }, [names, cap, len, palette, unitH, tubeH, hideMask, revealBits, revealT, frostMask, frostT]);
 
   const surface = useDerivedValue(() => {
     const s = slots.value;
@@ -210,6 +291,15 @@ export const TubeCanvas = React.memo(function TubeCanvas(p: TubeCanvasProps) {
   const capShineX = useDerivedValue(() => -tubeW * 0.5 + flourish.value * tubeW * 1.6);
   const capShineAlpha = useDerivedValue(() => Math.sin(Math.PI * flourish.value) * 0.9);
 
+  const warmGlow = useDerivedValue(() => warm.value * 0.9);
+  const frostGlow = useDerivedValue(() => (frostMask.value ? frostT.value * 0.55 : 0));
+  const lockOpacity = useDerivedValue(() => lockT.value);
+  const lockTransform = useDerivedValue(() => [
+    { translateX: tubeW / 2 }, { translateY: tubeH * 0.42 }, { scale: 1 + (1 - lockT.value) * 0.9 },
+  ]);
+  const lockDim = useDerivedValue(() => lockT.value * 0.45);
+  const corePulse = useDerivedValue(() => (tube.catalystSpent ? 0.22 : 0.45 + 0.35 * Math.sin(anim.phase.value * 3)));
+  const shackle = useMemo(() => shacklePath(Math.min(22, tubeW * 0.5)), [tubeW]);
   const edgeW = p.highContrast ? Math.max(2.8, skin.edgeW + 0.8) : skin.edgeW;
   const edgeColor = p.highContrast ? '#FFFFFF' : skin.edge;
   const sepColor = p.highContrast ? '#FFFFFF' : 'rgba(0,0,0,0.32)';
@@ -227,6 +317,12 @@ export const TubeCanvas = React.memo(function TubeCanvas(p: TubeCanvasProps) {
         <BlurMask blur={10} style="normal" />
       </Path>
 
+      <Path path={paths.outline} style="stroke" strokeWidth={5} color="#8FD4FF" opacity={frostGlow}>
+        <BlurMask blur={8} style="normal" />
+      </Path>
+      <Path path={paths.outline} style="stroke" strokeWidth={7} color="#FFB36B" opacity={warmGlow}>
+        <BlurMask blur={10} style="normal" />
+      </Path>
       {skin.glow && (
         <Path path={paths.outline} style="stroke" strokeWidth={4} color={skin.glow.color} opacity={skin.glow.alpha}>
           <BlurMask blur={6} style="normal" />
@@ -240,7 +336,7 @@ export const TubeCanvas = React.memo(function TubeCanvas(p: TubeCanvasProps) {
           {indexes.map((k) => (
             <Slot key={k} k={k} slots={slots} tubeW={tubeW} tubeH={tubeH} unitH={unitH} innerW={innerW}
               sepColor={sepColor} sepH={sepH} showMarks={showMarks} patterns={p.patterns} labels={p.labels}
-              patternPaths={patternPaths} font={p.font} />
+              patternPaths={patternPaths} font={p.font} phase={anim.phase} />
           ))}
           <Path path={wave} color={surfaceColor} />
           <Path path={waveLine} style="stroke" strokeWidth={1.2} color="rgba(255,255,255,0.55)" />
@@ -252,6 +348,15 @@ export const TubeCanvas = React.memo(function TubeCanvas(p: TubeCanvasProps) {
             />
           </Rect>
         </Group>
+        {p.catalystHex && (
+          <Group>
+            <Circle cx={tubeW / 2} cy={tubeH - TUBE_PAD - unitH * 0.35} r={tubeW * 0.3} color={p.catalystHex} opacity={corePulse}>
+              <BlurMask blur={6} style="normal" />
+            </Circle>
+            <Circle cx={tubeW / 2} cy={tubeH - TUBE_PAD - unitH * 0.35} r={tubeW * 0.12} color="#FFFFFF" opacity={corePulse} />
+          </Group>
+        )}
+        <Rect x={0} y={0} width={tubeW} height={tubeH} color="rgb(4,8,20)" opacity={lockDim} />
         {!reduceMotion && (
           <Group transform={[{ rotate: 0.35 }]} opacity={sweepAlpha}>
             <Rect x={sweepX} y={-tubeH * 0.3} width={tubeW * 0.25} height={tubeH * 1.6} color="rgba(255,255,255,0.8)" />
@@ -264,6 +369,14 @@ export const TubeCanvas = React.memo(function TubeCanvas(p: TubeCanvasProps) {
       <Path path={paths.highlight} color={skin.highlight} />
       <Path path={paths.reflection} color={skin.reflection} />
       <Path path={paths.rim} style="stroke" strokeWidth={1.2} color={skin.rim} />
+
+      {/* padlock on a locked tube; it swells and fades when the tube unlocks */}
+      <Group transform={lockTransform} opacity={lockOpacity}>
+        <Circle cx={0} cy={4} r={11} color={ACCENT} opacity={0.35}><BlurMask blur={6} style="normal" /></Circle>
+        <Path path={shackle} style="stroke" strokeWidth={2.4} strokeCap="round" color={ACCENT} />
+        <RoundedRect x={-8} y={-2} width={16} height={13} r={3} color={ACCENT} />
+        <Circle cx={0} cy={4.5} r={1.8} color="#06121F" />
+      </Group>
 
       {/* seal cap */}
       <Group opacity={capT}>
@@ -288,6 +401,7 @@ interface SlotProps {
   showMarks: boolean; patterns: boolean; labels: boolean;
   patternPaths: Record<PatternKind, SkPath>;
   font: SkFont | null;
+  phase: SharedValue<number>;
 }
 
 const Slot = React.memo(function Slot(p: SlotProps) {
@@ -319,6 +433,12 @@ const Slot = React.memo(function Slot(p: SlotProps) {
     return name ? COLOR_LETTERS[name] : '';
   });
   const clip = useMemo(() => Skia.XYWHRect(0, 0, innerW, unitH), [innerW, unitH]);
+  const q = useMemo(() => questionPath(Math.min(unitH * 0.6, 22)), [unitH]);
+  const cracks = useMemo(() => crackPath(innerW, unitH), [innerW, unitH]);
+  const veilOpacity = useDerivedValue(() => slots.value[k].veil * (0.4 + 0.3 * Math.sin(p.phase.value * 2.2 + k)));
+  const veilTransform = useDerivedValue(() => [{ translateX: GLASS_INSET + innerW / 2 }, { translateY: slots.value[k].y + unitH / 2 }]);
+  const frostOpacity = useDerivedValue(() => slots.value[k].frost * 0.5);
+  const crackOpacity = useDerivedValue(() => slots.value[k].frost * 0.85);
   const fillOpacity = useDerivedValue(() => (filledDV.value ? 1 : 0));
   const strokeOpacity = useDerivedValue(() => (filledDV.value ? 0 : 1));
 
@@ -326,6 +446,13 @@ const Slot = React.memo(function Slot(p: SlotProps) {
     <>
       <Rect x={-tubeW} y={y} width={3 * tubeW} height={h} color={color} />
       <Rect x={-tubeW} y={y} width={3 * tubeW} height={p.sepH} color={p.sepColor} opacity={sepOpacity} />
+      <Rect x={GLASS_INSET} y={y} width={innerW} height={h} color={FROST_HEX} opacity={frostOpacity} />
+      <Group transform={markTransform} opacity={crackOpacity} clip={clip}>
+        <Path path={cracks} style="stroke" strokeWidth={1.2} color="#FFFFFF" />
+      </Group>
+      <Group transform={veilTransform} opacity={veilOpacity}>
+        <Path path={q} style="stroke" strokeWidth={2.2} strokeCap="round" color="#8FA6D6" />
+      </Group>
       {p.showMarks && (
         <Group transform={markTransform} clip={clip} opacity={markOpacity}>
           {p.patterns && (

@@ -92,6 +92,34 @@ describe('completeLevel rewards', () => {
   });
 });
 
+describe('reactor bonus', () => {
+  const base = LEVELS.find((l) => l.rules?.reactor)!;
+  const limit = base.rules!.reactor!.moveLimit;
+  const bonus = base.rules!.reactor!.bonusCoins;
+  it('pays the bonus when solved within the limit, once only', () => {
+    const first = complete(defaultGameSave(), base, limit);
+    expect(first.result.reactorBonus).toBe(bonus);
+    expect(first.result.levelCoins).toBe(50 + 25 * (first.result.stars === 3 ? 1 : 0) + bonus);
+    const again = complete(first.save, base, limit);
+    expect(again.result.reactorBonus).toBe(0);
+    expect(again.result.levelCoins).toBe(5);
+  });
+  it('past the limit the level still completes, without the bonus', () => {
+    const r = complete(defaultGameSave(), base, limit + 1);
+    expect(r.result.reactorBonus).toBe(0);
+    expect(r.result.stars).toBeGreaterThanOrEqual(1);
+    expect(r.save.progress.levels[base.id].completions).toBe(1);
+  });
+  it('a bonus missed the first time can still be earned on a faster replay', () => {
+    const slow = complete(defaultGameSave(), base, limit + 3);
+    const fast = complete(slow.save, base, limit);
+    expect(fast.result.reactorBonus).toBe(bonus);
+  });
+  it('ordinary levels never pay a reactor bonus', () => {
+    expect(complete(defaultGameSave(), LEVELS[0], 4).result.reactorBonus).toBe(0);
+  });
+});
+
 describe('achievements', () => {
   it('has the eight spec achievements with spec rewards', () => {
     expect(Object.fromEntries(ACHIEVEMENT_LIST.map((a) => [a.id, a.reward]))).toEqual({

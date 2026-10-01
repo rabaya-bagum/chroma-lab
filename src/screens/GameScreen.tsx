@@ -5,6 +5,8 @@ import { COLOR_NAMES } from '../config/theme';
 import { extraTubeCost, hintCost } from '../config/economy';
 import { GameBoard } from '../components/GameBoard';
 import { GameControls } from '../components/GameControls';
+import { MechanicsNote } from '../components/MechanicsNote';
+import { ReactorMeter } from '../components/ReactorMeter';
 import { TopBar } from '../components/TopBar';
 import { TutorialOverlay } from '../components/TutorialOverlay';
 import { DailyWinOverlay, WinOverlay } from '../components/WinOverlay';
@@ -128,6 +130,11 @@ export function GameScreen({ level, forceTutorial, onExit, onNext }: Props) {
     }
   }, [tutorialActive, tutStep, clearHint]);
 
+  const onMechanic = useCallback((kind: 'reveal' | 'thaw' | 'unlock' | 'catalyst') => {
+    audio.play(kind === 'reveal' ? 'reveal' : kind === 'thaw' ? 'thaw' : 'unlock');
+    haptics.trigger(kind === 'catalyst' ? 'tubeComplete' : 'select');
+  }, []);
+
   const finishWin = useCallback(() => {
     if (winTimer.current) clearTimeout(winTimer.current);
     winTimer.current = null;
@@ -201,7 +208,7 @@ export function GameScreen({ level, forceTutorial, onExit, onNext }: Props) {
     clearHint();
     setHinting(true);
     const board = s.current;
-    const result = await findHint(board); // sliced across frames; never blocks animation
+    const result = await findHint(board, { level }); // sliced across frames; never blocks animation
     if (!mounted.current) return;
     setHinting(false);
     // the player moved on while the search ran: drop the stale answer
@@ -223,7 +230,7 @@ export function GameScreen({ level, forceTutorial, onExit, onNext }: Props) {
     hintTimers.current.push(setTimeout(() => setHintTubes([result.move.from, result.move.to]), HINT_RING_DELAY_MS));
     hintTimers.current.push(setTimeout(() => setHintTubes([]), HINT_VISIBLE_MS));
     toast({ kind: 'info', title: 'HINT', message: `Try moving ${COLOR_NAMES[result.color].toUpperCase()} here.` });
-  }, [hinting, effectiveNumber, clearHint, level.id]);
+  }, [hinting, effectiveNumber, clearHint, level]);
 
   if (!session) return null;
   const { moves } = session.current;
@@ -239,10 +246,14 @@ export function GameScreen({ level, forceTutorial, onExit, onNext }: Props) {
         title={isDaily ? 'DAILY EXPERIMENT' : undefined} showStars={!isDaily}
       />
 
+      <ReactorMeter level={level} moves={moves} />
+      <MechanicsNote level={level} />
+
       {tutorialActive && <TutorialOverlay step={tutStep} canSkip={tutorialDoneAtStart} onSkip={() => setTutStep(4)} />}
 
       <View style={styles.board}>
         <GameBoard
+          level={level}
           current={session.current}
           events={lastEvents}
           selected={selected}
@@ -253,6 +264,7 @@ export function GameScreen({ level, forceTutorial, onExit, onNext }: Props) {
           onPourStart={() => { haptics.trigger('pour'); audio.play('pour'); }}
           onTubeComplete={() => { audio.play('tubeComplete'); haptics.trigger('tubeComplete'); }}
           onSolved={onSolved}
+          onMechanic={onMechanic}
           onBusyChange={setBusy}
         />
         {winPlaying && (

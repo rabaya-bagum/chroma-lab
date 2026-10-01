@@ -1,6 +1,7 @@
 import { isPuzzleSolved } from './rules';
-import { encodeState, Search } from './solver';
-import type { GameState, LiquidColor, Move } from './types';
+import { createSearch } from './solver';
+import type { Searcher } from './solver';
+import type { GameState, Level, LiquidColor, Move } from './types';
 
 export type HintResult =
   | { kind: 'move'; move: Move; color: LiquidColor }
@@ -20,6 +21,8 @@ export interface HintOptions {
   fallbackMs?: number;
   now?: () => number;
   nextFrame?: FrameScheduler;
+  /** The level being played; needed for locks, catalysts and conditions. */
+  level?: Level;
 }
 
 export const HINT_SLICE_MS = 8;
@@ -47,19 +50,16 @@ export async function findHint(state: GameState, opts: HintOptions = {}): Promis
 
   if (isPuzzleSolved(state)) return { kind: 'solved' };
 
-  let start: string[];
-  try {
-    start = encodeState(state);
-  } catch {
-    return { kind: 'unknown' }; // mechanics the solver cannot model yet
-  }
+  const make = (weight: number, maxNodes: number): Searcher | null => createSearch(state, weight, maxNodes, opts.level);
+  const exactSearch = make(1, 2_000_000);
+  if (!exactSearch) return { kind: 'unknown' }; // mechanics without a level to model them
 
   const colorOf = (move: Move): LiquidColor => {
     const tube = state.tubes[move.from];
     return tube.liquids[tube.liquids.length - 1].color;
   };
 
-  const drive = async (search: Search, budgetMs: number) => {
+  const drive = async (search: Searcher, budgetMs: number) => {
     const began = now();
     for (;;) {
       const sliceStart = now();
@@ -70,7 +70,7 @@ export async function findHint(state: GameState, opts: HintOptions = {}): Promis
     }
   };
 
-  const exact = await drive(new Search(start, 1, 2_000_000), totalMs);
+  const exact = await drive(exactSearch, totalMs);
   if (exact?.status === 'solved') {
     const move = exact.solution![0];
     return { kind: 'move', move, color: colorOf(move) };
@@ -78,7 +78,7 @@ export async function findHint(state: GameState, opts: HintOptions = {}): Promis
   if (exact?.status === 'exhausted') return { kind: 'unsolvable' };
 
   // Out of time (or node budget): look for any solution quickly.
-  const approx = await drive(new Search(start, 3, 200_000), fallbackMs);
+  const approx = await drive(make(3, 200_000)!, fallbackMs);
   if (approx?.status === 'solved') {
     const move = approx.solution![0];
     return { kind: 'move', move, color: colorOf(move) };

@@ -1,5 +1,6 @@
 import { COLOR_LETTERS } from './levelCodec';
 import { createInitialState } from './session';
+import { hasMechanics, MechSearch } from './mechSolver';
 import type { GameState, Level, Move } from './types';
 
 export interface SolveResult {
@@ -225,24 +226,36 @@ export class Search {
   }
 }
 
-function search(start: string[], weight: number, maxNodes: number): SearchOutcome {
-  return new Search(start, weight, maxNodes).run()!;
-}
-
 /** Compact encoding of a runtime state for `Search` (throws for mechanics the solver cannot model yet). */
 export const encodeState = (state: GameState): string[] => encode(state);
 
+/** Anything that can be run in slices: the classic string search or the mechanics search. */
+export interface Searcher { run(shouldYield?: () => boolean): SearchOutcome | null }
+
+/**
+ * Pick the right search for a position. Levels with section 11 mechanics need the
+ * level (for conditions and catalysts); the classic fast search is used otherwise.
+ * Returns null if the position cannot be modelled (mechanics but no level).
+ */
+export function createSearch(state: GameState, weight: number, maxNodes: number, level?: Level): Searcher | null {
+  const mech = state.tubes.some((t) => t.locked || t.catalystSpent || t.liquids.some((l) => l.frozen || l.hidden));
+  if (level && (hasMechanics(level) || mech)) return new MechSearch(level, state, weight, maxNodes);
+  if (mech) return null;
+  return new Search(encode(state), weight, maxNodes);
+}
+
 /** Solve a runtime state. Exact optimum if the budget allows, otherwise best effort. */
-export function solveState(state: GameState, options: SolveOptions = {}): SolveResult {
+export function solveState(state: GameState, options: SolveOptions = {}, level?: Level): SolveResult {
   const o = { ...DEFAULT_SOLVE_OPTIONS, ...options };
-  const start = encode(state);
-  const exact = search(start, 1, o.maxNodes);
+  const exactSearch = createSearch(state, 1, o.maxNodes, level);
+  if (!exactSearch) throw new Error('Position has mechanics but no level was supplied to the solver');
+  const exact = exactSearch.run()!;
   if (exact.status === 'solved') {
     return { solvable: true, solution: exact.solution, optimal: exact.solution!.length, exact: true, nodes: exact.nodes };
   }
   if (exact.status === 'exhausted') return { solvable: false, exact: true, nodes: exact.nodes };
 
-  const approx = search(start, o.fallbackWeight, o.fallbackNodes);
+  const approx = createSearch(state, o.fallbackWeight, o.fallbackNodes, level)!.run()!;
   const nodes = exact.nodes + approx.nodes;
   if (approx.status === 'solved') {
     return { solvable: true, solution: approx.solution, optimal: approx.solution!.length, exact: false, nodes };
@@ -251,5 +264,5 @@ export function solveState(state: GameState, options: SolveOptions = {}): SolveR
 }
 
 export function solveLevel(level: Level, options?: SolveOptions): SolveResult {
-  return solveState(createInitialState(level), options);
+  return solveState(createInitialState(level), options, level);
 }

@@ -17,9 +17,17 @@ export function createInitialState(level: Level): GameState {
       catalystSpent: false,
       isExtra: false,
     };
-    return { ...tube, sealed: isTubeComplete(tube) };
+    return { ...tube, sealed: !tube.locked && isTubeComplete(tube) };
   });
-  return { levelId: level.id, tubes, moves: 0 };
+  return { levelId: level.id, tubes: tubes.map(revealTop), moves: 0 };
+}
+
+/** A hidden layer is never on top (§5.1): a board that starts with one on top shows its true colour. */
+function revealTop(t: TubeState): TubeState {
+  const k = t.liquids.length - 1;
+  if (k < 0 || !t.liquids[k].hidden) return t;
+  const { hidden: _h, ...rest } = t.liquids[k];
+  return { ...t, liquids: t.liquids.map((l, j) => (j === k ? rest : l)) };
 }
 
 export function createSession(level: Level, now = 0): Session {

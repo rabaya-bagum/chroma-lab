@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { LayoutChangeEvent } from 'react-native';
 import {
-  Canvas, Group, LinearGradient, matchFont, Rect, vec,
+  Canvas, Circle, Group, LinearGradient, matchFont, Path, Rect, Skia, vec,
 } from '@shopify/react-native-skia';
 import {
   Easing, useDerivedValue, useFrameCallback, useSharedValue, withSequence, withTiming,
@@ -10,7 +10,8 @@ import {
 import { scheduleOnRN } from 'react-native-worklets';
 import { LIQUID_HEX, LIQUID_HEX_COLORBLIND } from '../config/theme';
 import { describeEvents } from '../game/accessibility';
-import type { GameEvent, GameState, LiquidColor } from '../game/types';
+import { describeProgress } from '../game/conditions';
+import type { GameEvent, GameState, Level, LiquidColor } from '../game/types';
 import { Particles } from '../render/Particles';
 import { Stream } from '../render/Stream';
 import { ThemeBackdrop } from '../render/ThemeBackdrop';
@@ -36,9 +37,12 @@ export interface BoardCallbacks {
   /** All tubes finished; the win flourish has begun. */
   onSolved?(): void;
   onBusyChange?(busy: boolean): void;
+  /** A section 11 mechanic just played out (reveal, thaw, unlock, catalyst). */
+  onMechanic?(kind: 'reveal' | 'thaw' | 'unlock' | 'catalyst'): void;
 }
 
 interface Props extends BoardCallbacks {
+  level: Level;
   current: GameState;
   events: GameEvent[];
   selected: number | null;
@@ -52,6 +56,8 @@ interface Props extends BoardCallbacks {
 /** The canvas extends this far above the board so a tilted tube is never clipped. */
 const OVER = 72;
 const UNDO_MS = 240;
+/** Time for the catalyst arc to reach its target before the target's own animation starts. */
+const CATALYST_ARC_MS = 380;
 const REDUCED_MS = 220;
 
 function findUndoMove(shown: GameState, target: GameState) {
@@ -83,11 +89,14 @@ export function GameBoard(props: Props) {
   const [activeSrc, setActiveSrc] = useState(-1);
   const busy = useRef(false);
   const [nonces, setNonces] = useState({ flourish: [] as number[], wobble: [] as number[] });
+  const [fxDelay, setFxDelay] = useState<number[]>([]);
 
   const plan = useSharedValue<Plan | null>(null);
   const clock = useSharedValue(0);
   const phase = useSharedValue(0);
   const brighten = useSharedValue(0);
+  const catT = useSharedValue(1);
+  const catGeom = useSharedValue<number[]>([0, 0, 0, 0, 0]);
   const particles = useSharedValue<number[]>(createParticleState());
   const anim = useMemo<BoardAnim>(() => ({ plan, clock, phase }), [plan, clock, phase]);
 
@@ -176,7 +185,41 @@ export function GameBoard(props: Props) {
     props.onSolved?.();
   }, [bump, burst, brighten, props]);
 
+  const playMechanics = useCallback((target: GameState, evts: GameEvent[]) => {
+    const l = layoutRef.current;
+    const cat = evts.find((e): e is Extract<GameEvent, { type: 'catalystActivated' }> => e.type === 'catalystActivated');
+    const delays: number[] = [];
+    let arcTarget = -1;
+    if (cat) {
+      arcTarget = target.tubes.findIndex((t) => t.id === cat.effect.tubeId);
+      if (arcTarget >= 0 && !reduce) delays[arcTarget] = CATALYST_ARC_MS;
+    }
+    setFxDelay(delays);
+    const kinds = new Set<'reveal' | 'thaw' | 'unlock' | 'catalyst'>();
+    const sparks: { tube: number; at: number }[] = [];
+    for (const e of evts) {
+      if (e.type === 'revealed') { kinds.add('reveal'); sparks.push({ tube: e.tube, at: delays[e.tube] ?? 0 }); }
+      else if (e.type === 'thawed') { kinds.add('thaw'); sparks.push({ tube: e.tube, at: delays[e.tube] ?? 0 }); }
+      else if (e.type === 'unlocked') { kinds.add('unlock'); sparks.push({ tube: e.tube, at: delays[e.tube] ?? 0 }); }
+      else if (e.type === 'catalystActivated') kinds.add('catalyst');
+    }
+    if (cat && !reduce) {
+      const a = l.positions[cat.tube], b = arcTarget >= 0 ? l.positions[arcTarget] : null;
+      if (a && b) {
+        catGeom.value = [a.x + l.tubeW / 2, a.y + l.tubeH - TUBE_PAD, b.x + l.tubeW / 2, b.y + l.tubeH * 0.4, l.tubeW];
+        catT.value = 0;
+        catT.value = withTiming(1, { duration: CATALYST_ARC_MS + 220, easing: Easing.out(Easing.cubic) });
+      }
+    }
+    for (const sp of sparks) {
+      const pos = l.positions[sp.tube];
+      if (pos) setTimeout(() => burst(pos.x + l.tubeW / 2, pos.y + l.tubeH * 0.45, 9, KIND_SPARK, 0.6), sp.at + 200);
+    }
+    kinds.forEach((k) => props.onMechanic?.(k));
+  }, [burst, catGeom, catT, props, reduce]);
+
   const finish = useCallback((target: GameState, evts: GameEvent[], pourTo: number, pourFrom: number) => {
+    playMechanics(target, evts);
     setShown(target);
     setActiveSrc(-1);
     setBusy(false);
@@ -197,7 +240,7 @@ export function GameBoard(props: Props) {
     }
     if (evts.some((e) => e.type === 'solved')) winSequence(target);
     AccessibilityInfo.announceForAccessibility(describeEvents(evts));
-  }, [bump, burst, props, setBusy, winSequence, effect]);
+  }, [bump, burst, props, setBusy, winSequence, effect, playMechanics]);
 
   const play = useCallback((pl: Plan, target: GameState, evts: GameEvent[]) => {
     setBusy(true);
@@ -279,6 +322,31 @@ export function GameBoard(props: Props) {
     return activeSrc >= 0 ? [...idx.filter((i) => i !== activeSrc), activeSrc] : idx;
   }, [shown.tubes, activeSrc]);
 
+  const defs = props.level.tubes;
+  const catalystColors = useMemo(
+    () => shown.tubes.map((t) => { const c = defs.find((d) => d.id === t.id)?.catalyst; return c ? palette[c.triggerColor] : undefined; }),
+    [shown.tubes, defs, palette],
+  );
+  const lockTexts = useMemo(
+    () => shown.tubes.map((t) => {
+      const lock = t.locked ? defs.find((d) => d.id === t.id)?.lock : undefined;
+      return lock ? describeProgress(lock.unlockWhen, shown) : undefined;
+    }),
+    [shown, defs],
+  );
+  const arcPath = useDerivedValue(() => {
+    const [x0, y0, x1, y1] = catGeom.value;
+    const p = Skia.Path.Make();
+    p.moveTo(x0, y0);
+    p.quadTo((x0 + x1) / 2, Math.min(y0, y1) - 70, x1, y1);
+    return p;
+  });
+  const ringR = useDerivedValue(() => catGeom.value[4] * (0.3 + 1.2 * catT.value));
+  const ringOpacity = useDerivedValue(() => (catT.value >= 1 ? 0 : 1 - catT.value));
+  const ringCx = useDerivedValue(() => catGeom.value[0]);
+  const ringCy = useDerivedValue(() => catGeom.value[1]);
+  const arcEnd = useDerivedValue(() => Math.min(1, catT.value * 1.6));
+  const arcOpacity = useDerivedValue(() => (catT.value >= 1 ? 0 : 0.95));
   const shelfRows = useMemo(() => Array.from(new Set(layout.positions.map((p) => Math.round(p.y)))), [layout.positions]);
   const ready = size.w > 0 && size.h > 0;
   const hc = settings.highContrast;
@@ -319,19 +387,38 @@ export function GameBoard(props: Props) {
                   shakeNonce={shake && shake.tube === i ? shake.nonce : 0}
                   flourishNonce={nonces.flourish[i] ?? 0}
                   wobbleNonce={nonces.wobble[i] ?? 0}
+                  catalystHex={catalystColors[i]}
+                  fxDelay={fxDelay[i] ?? 0}
                 />
               );
             })}
             <Stream anim={anim} reduceMotion={reduce} effect={effect} />
+            {!reduce && (
+              <Group>
+                <Circle cx={ringCx} cy={ringCy} r={ringR} style="stroke" strokeWidth={3} color="#FFE9A8" opacity={ringOpacity} />
+                <Path path={arcPath} style="stroke" strokeWidth={4} strokeCap="round" color="#FFE9A8" start={0} end={arcEnd} opacity={arcOpacity} />
+              </Group>
+            )}
             <Particles state={particles} />
             <Rect x={0} y={0} width={size.w} height={size.h} color="#FFFFFF" opacity={brightenOpacity} />
             </Group>
           </Canvas>
           </View>
+          {shown.tubes.map((t, i) => (
+            t.locked && lockTexts[i] && layout.positions[i] ? (
+              <View key={`lock-${t.id}`} pointerEvents="none" style={[styles.badge, { left: layout.positions[i].x - 14, width: layout.tubeW + 28, top: layout.positions[i].y + layout.tubeH * 0.42 + 16 }]}>
+                <Text maxFontSizeMultiplier={1.3} style={styles.badgeText}>{lockTexts[i]}</Text>
+              </View>
+            ) : null
+          ))}
           {props.highlight && props.highlight.length > 0 && <HintRings cells={layout.cells} tubes={props.highlight} />}
           {shown.tubes.map((t, i) => (
             layout.cells[i] ? (
-              <TubeHit key={t.id} tube={t} index={i} total={shown.tubes.length} selected={selected === i} cell={layout.cells[i]} onPress={handleTap} />
+              <TubeHit
+                key={t.id} tube={t} index={i} total={shown.tubes.length} selected={selected === i}
+                extra={t.locked ? lockTexts[i] : catalystColors[i] && !t.catalystSpent ? 'catalyst' : undefined}
+                cell={layout.cells[i]} onPress={handleTap}
+              />
             ) : null
           ))}
         </>
@@ -340,4 +427,8 @@ export function GameBoard(props: Props) {
   );
 }
 
-const styles = StyleSheet.create({ fill: { flex: 1 } });
+const styles = StyleSheet.create({
+  fill: { flex: 1 },
+  badge: { position: 'absolute', alignItems: 'center' },
+  badgeText: { color: '#27E3F2', fontSize: 10, fontWeight: '800', letterSpacing: 0.5, textAlign: 'center', textShadowColor: '#000', textShadowRadius: 4 },
+});

@@ -1,15 +1,21 @@
 import { COLOR_LETTERS } from './levelCodec';
 import { ALL_COLORS } from './types';
-import type { GameState, Level, LiquidColor, TubeState } from './types';
+import type { GameState, Level, LiquidColor, TubeDef, TubeState } from './types';
 
-function tubeToken(t: Pick<TubeState, 'capacity' | 'liquids'>, map?: Record<string, string>): string {
-  let s = String.fromCharCode(48 + t.capacity);
+function tubeToken(t: Pick<TubeState, 'capacity' | 'liquids'>, map?: Record<string, string>, rules = ''): string {
+  let s = String.fromCharCode(48 + t.capacity) + rules;
   for (const l of t.liquids) {
     const letter = COLOR_LETTERS[l.color];
-    s += map ? map[letter] : letter;
+    s += (map ? map[letter] : letter) + (l.frozen ? '^' : l.hidden ? '?' : '');
   }
   return s;
 }
+
+/** Per-tube rules that make two otherwise equal tubes different puzzles. */
+const rulesToken = (t: TubeDef): string =>
+  (t.lock ? `L${JSON.stringify(t.lock.unlockWhen)}` : '') +
+  (t.thawWhen ? `T${JSON.stringify(t.thawWhen)}` : '') +
+  (t.catalyst ? `C${t.catalyst.triggerColor}${JSON.stringify(t.catalyst.effect)}` : '');
 
 /**
  * Solver state key: tube order is irrelevant, so plain tubes are sorted.
@@ -41,7 +47,7 @@ export function levelCanonicalKey(level: Pick<Level, 'tubes'>): string {
   for (const perm of permutations(letters.map((_, i) => i))) {
     const map: Record<string, string> = {};
     letters.forEach((letter, i) => (map[letter] = String.fromCharCode(97 + perm[i])));
-    const key = level.tubes.map((t) => tubeToken(t, map)).sort().join(',');
+    const key = level.tubes.map((t) => tubeToken(t, map, rulesToken(t))).sort().join(',');
     if (best === null || key < best) best = key;
   }
   return best ?? '';

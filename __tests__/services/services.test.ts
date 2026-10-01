@@ -1,3 +1,4 @@
+/* eslint-disable import/first -- jest.mock calls must run before the imports below */
 jest.mock('expo-haptics', () => ({
   selectionAsync: jest.fn(() => Promise.resolve()),
   impactAsync: jest.fn(() => Promise.resolve()),
@@ -8,9 +9,9 @@ jest.mock('expo-haptics', () => ({
 jest.mock('expo-audio', () => ({ createAudioPlayer: jest.fn(), setAudioModeAsync: jest.fn() }));
 
 import * as H from 'expo-haptics';
-import { createHaptics, HAPTIC_MIN_GAP_MS } from '../src/services/haptics';
-import { PlayerPool, pourRate, MAX_OVERLAP } from '../src/services/audio';
-import { effectivePatterns, effectiveReduceMotion } from '../src/store/settingsStore';
+import { createHaptics, HAPTIC_MIN_GAP_MS } from '../../src/services/haptics';
+import { PlayerPool, pourRate, MAX_OVERLAP } from '../../src/services/audio';
+import { effectivePatterns, effectiveReduceMotion } from '../../src/store/settingsStore';
 
 describe('haptics', () => {
   const make = (enabled = true) => {

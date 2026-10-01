@@ -3,7 +3,7 @@ import { resolveTap } from '../game/interaction';
 import type { TapAction } from '../game/interaction';
 import { isDeadlocked, isPuzzleSolved } from '../game/rules';
 import { calculateStars } from '../game/scoring';
-import { addExtraTube, applyMove, createSession, restartLevel, undoMove } from '../game/session';
+import { addElapsed, addExtraTube, applyMove, createSession, restartLevel, undoMove } from '../game/session';
 import type { GameEvent, Level, Session } from '../game/types';
 
 interface GameStore {
@@ -14,6 +14,10 @@ interface GameStore {
   /** Bumped on every shake request so the UI can key an animation on it. */
   shake: { tube: number; nonce: number } | null;
   start(level: Level): void;
+  /** Continue a saved in-progress session. */
+  resume(session: Session): void;
+  /** Add play time (ms) while the app is in the foreground. */
+  tick(deltaMs: number): void;
   tap(tube: number): TapAction | null;
   undo(): void;
   restart(): void;
@@ -28,6 +32,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
   shake: null,
 
   start: (level) => set({ session: createSession(level, Date.now()), selected: null, lastEvents: [], shake: null }),
+
+  resume: (session) => set({ session, selected: null, lastEvents: [], shake: null }),
+
+  tick: (deltaMs) => {
+    const { session } = get();
+    if (session && !isPuzzleSolved(session.current)) set({ session: addElapsed(session, deltaMs) });
+  },
 
   tap: (tube) => {
     const { session, selected, shake } = get();

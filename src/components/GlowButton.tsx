@@ -12,9 +12,11 @@ interface Props {
   primary?: boolean;
   /** Overrides the spoken label (defaults to `label`). */
   accessibilityLabel?: string;
+  /** Small line under the label, for example a coin price. */
+  caption?: string;
 }
 
-export function GlowButton({ label, onPress, icon, disabled, primary, accessibilityLabel }: Props) {
+export function GlowButton({ label, onPress, icon, disabled, primary, accessibilityLabel, caption }: Props) {
   return (
     <Pressable
       onPress={onPress}
@@ -27,6 +29,7 @@ export function GlowButton({ label, onPress, icon, disabled, primary, accessibil
       <View style={styles.inner}>
         {icon && <Icon name={icon} size={22} color={disabled ? theme.textDim : primary ? theme.accent : theme.text} />}
         <Text maxFontSizeMultiplier={1.3} style={[styles.text, primary && { color: theme.accent }]}>{label}</Text>
+        {caption ? <Text maxFontSizeMultiplier={1.3} style={styles.caption}>{caption}</Text> : null}
       </View>
     </Pressable>
   );
@@ -43,4 +46,5 @@ const styles = StyleSheet.create({
   off: { opacity: 0.38 },
   inner: { alignItems: 'center', gap: 2 },
   text: { color: theme.text, fontSize: 11, fontWeight: '700', letterSpacing: 1.2 },
+  caption: { color: '#FFC83D', fontSize: 10, fontWeight: '700' },
 });

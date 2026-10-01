@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { AccessibilityInfo, Platform, Pressable, StyleSheet, View } from 'react-native';
 import type { LayoutChangeEvent } from 'react-native';
 import {
   Canvas, Group, LinearGradient, matchFont, RadialGradient, Rect, vec,
@@ -24,8 +24,8 @@ import { chooseSide, pourTarget, pourTimeline } from '../render/pourGeometry';
 import { useSettingsStore, effectivePatterns, effectiveReduceMotion } from '../store/settingsStore';
 import { computeLayout } from '../utils/layout';
 import type { BoardLayout } from '../utils/layout';
+import { HintRings } from './HintRings';
 import { TubeHit } from './Tube';
-import { AccessibilityInfo } from 'react-native';
 
 export interface BoardCallbacks {
   /** A pour animation is starting (play pour sound and haptic). */
@@ -43,6 +43,8 @@ interface Props extends BoardCallbacks {
   shake: { tube: number; nonce: number } | null;
   onTap(tube: number): void;
   onBackgroundTap(): void;
+  /** Tubes to ring (tutorial). */
+  highlight?: number[];
 }
 
 /** The canvas extends this far above the board so a tilted tube is never clipped. */
@@ -74,7 +76,7 @@ export function GameBoard(props: Props) {
 
   const [shown, setShown] = useState<GameState>(current);
   const shownRef = useRef(shown);
-  shownRef.current = shown;
+  useLayoutEffect(() => { shownRef.current = shown; }, [shown]);
   const [activeSrc, setActiveSrc] = useState(-1);
   const busy = useRef(false);
   const [nonces, setNonces] = useState({ flourish: [] as number[], wobble: [] as number[] });
@@ -91,7 +93,7 @@ export function GameBoard(props: Props) {
     [size.w, size.h, shown.tubes],
   );
   const layoutRef = useRef(layout);
-  layoutRef.current = layout;
+  useLayoutEffect(() => { layoutRef.current = layout; }, [layout]);
 
   const font = useMemo(() => {
     try {
@@ -324,6 +326,7 @@ export function GameBoard(props: Props) {
             </Group>
           </Canvas>
           </View>
+          {props.highlight && props.highlight.length > 0 && <HintRings cells={layout.cells} tubes={props.highlight} />}
           {shown.tubes.map((t, i) => (
             layout.cells[i] ? (
               <TubeHit key={t.id} tube={t} index={i} total={shown.tubes.length} selected={selected === i} cell={layout.cells[i]} onPress={handleTap} />

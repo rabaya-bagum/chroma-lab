@@ -24,11 +24,12 @@ export const Stream = React.memo(function Stream({ anim, reduceMotion }: { anim:
   const color = useDerivedValue(() => anim.plan.value?.hex ?? '#FFFFFF');
   const opacity = useDerivedValue(() => geo.value?.alpha ?? 0);
   const width = useDerivedValue(() => geo.value?.width ?? 0);
+  const coreWidth = useDerivedValue(() => width.value * 0.3);
   if (reduceMotion) return null;
   return (
     <>
       <Path path={path} style="stroke" strokeWidth={width} strokeCap="round" color={color} opacity={opacity} />
-      <Path path={path} style="stroke" strokeWidth={useDerivedValue(() => width.value * 0.3)} strokeCap="round"
+      <Path path={path} style="stroke" strokeWidth={coreWidth} strokeCap="round"
         color="rgba(255,255,255,0.55)" opacity={opacity} />
     </>
   );

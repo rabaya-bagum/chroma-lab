@@ -8,7 +8,7 @@ import { solveLevel } from '../../src/game/solver';
 import { parseSave } from '../../src/services/saveParser';
 
 describe('first launch through every level', () => {
-  it('plays all 75 levels by their optimal solutions, unlocking in order and surviving save/load', () => {
+  it('plays all 85 levels by their optimal solutions, unlocking in order and surviving save/load', () => {
     let save = defaultSave();
     expect(continueTarget(save, LEVELS, false)).toMatchObject({ label: 'PLAY' });
 
@@ -38,9 +38,9 @@ describe('first launch through every level', () => {
       expect(save).not.toBeNull();
     }
 
-    expect(save.progress.stats.levelsCompleted).toBe(75);
-    expect(save.progress.starsTotal).toBe(225);
-    expect(save.progress.highestUnlocked).toBe(75);
+    expect(save.progress.stats.levelsCompleted).toBe(85);
+    expect(save.progress.starsTotal).toBe(255);
+    expect(save.progress.highestUnlocked).toBe(85);
     expect(Object.keys(save.progress.achievements).sort()).toEqual(
       ['efficiency_expert', 'first_reaction', 'master_chemist', 'no_mistakes', 'perfect_formula', 'researcher', 'scientist'],
     );

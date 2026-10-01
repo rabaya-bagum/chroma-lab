@@ -2,13 +2,13 @@
 
 **Name:** Chroma Lab (30 characters max on both stores)
 **Subtitle (iOS, 30):** Colour sorting puzzle lab
-**Short description (Google Play, 80):** Sort liquids, thaw ice, mix colours and solve 75 lab puzzles.
+**Short description (Google Play, 80):** Sort liquids, thaw ice, mix colours and solve 85 lab puzzles.
 
 ## Long description
 
 Welcome to the lab. Pour coloured liquids between glass tubes until every tube holds a single colour.
 
-- 75 solver-verified puzzles in seven chapters, from a gentle first pour to expert experiments. Every level is proven solvable.
+- 85 solver-verified puzzles in eight chapters, from a gentle first pour to expert experiments. Every level is proven solvable.
 - New rules as you go: frozen layers that thaw, mystery layers that reveal their colour, locked tubes, catalysts, and colour mixing, where red and blue make purple, and levels that combine them all.
 - Daily Experiment: a fresh puzzle every day, with a streak.
 - Earn stars and coins, unlock achievements, collect tube skins, lab themes and pour effects, and build up your laboratory.

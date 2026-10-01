@@ -95,3 +95,11 @@ For frame rate, audio, splash, persistence and other hardware-only checks see `d
 - [ ] With the `preview` build, the overlay shows fps, worst frame and FULL/LITE on the board and does not block taps.
 - [ ] On a healthy phone the tier stays FULL; on a deliberately slow one it drops to LITE after a couple of seconds and play is unaffected (ambient bubbles stop, shimmer is calmer, pours look the same).
 - [ ] Pours on a 9-tube board feel smoother than before, with the overlay as evidence.
+
+## Chapter 8
+
+- [ ] Chapter 8 appears in Level Select (76-85) and unlocks after level 75.
+- [ ] Levels 76 and 82-85 show frost on a tube whose upper layers are still mystery; the frozen layers are visible and thaw on their condition.
+- [ ] Levels 80 and 81 have a glowing catalyst tube; level 80 shows the reactor meter.
+- [ ] Rules briefing opens on first play of each; the RULES button works after.
+- [ ] Levels 77-85 are completable and feel harder than chapter 7; report any that feel samey.

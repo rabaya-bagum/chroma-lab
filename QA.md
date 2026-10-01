@@ -1,5 +1,7 @@
 # Manual QA
 
+For frame rate, audio, splash, persistence and other hardware-only checks see `docs/DEVICE_TEST_PLAN.md`.
+
 ## Phase 1
 - [ ] App launches in Expo Go on iOS and on Android.
 - [ ] Level list shows 25 levels; tapping one opens the game screen.

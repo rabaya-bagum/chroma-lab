@@ -20,6 +20,13 @@ npx tsx scripts/print-level-solution.ts L047           # a level's solution and 
 npm run web            # browser build (copies the CanvasKit wasm into public/ first)
 ```
 
+## Release
+
+- `docs/RELEASE.md` release readiness, EAS build and submit steps, privacy and permissions review.
+- `docs/STORE_LISTING.md` and `docs/PRIVACY_POLICY.md` draft store text and policy.
+- `docs/DEVICE_TEST_PLAN.md` the checks that need real hardware (frame rate, audio, splash, persistence).
+- `eas.json` build profiles; `assets/branding/*.svg` are the sources of the placeholder icons.
+
 ## Layout
 
 - `src/game/` pure TypeScript rules engine, solver, generator, scoring. No React or Expo imports.

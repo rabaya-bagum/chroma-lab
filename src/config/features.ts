@@ -4,5 +4,5 @@ export const features = {
   daily: true,          // Phase 4
   collection: true,     // Phase 4
   laboratory: true,     // Phase 4
-  specialMechanics: false, // Phase 5
+  specialMechanics: true,  // Phase 5 (shipped; includes colour mixing)
 } as const;

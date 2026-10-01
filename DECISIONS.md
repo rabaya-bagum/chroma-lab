@@ -93,3 +93,14 @@ Choices made where SPEC.md was silent or where reality forced a deviation.
 72. **Interface.** Recipe legend under the top bar; selecting a tube shows the result colour above every tube it would mix with (also in the screen reader label); a mixed pour plays the `mix` sound and sparks; hints say "Try mixing X into Y". The pour animation is the normal one with a single drop, and the destination turns into the new colour when it lands (no crossfade: placeholder art). Undo slides the mixed unit back.
 73. **Mixing tutorial** (`tutorial: 'mixing'`, level 56, first play or forced): three steps, never restricts taps, always skippable.
 74. **Not verified without a device:** the feel of the mix animation, and the (silent) `mix.wav`, on hardware.
+
+## Phase 6 (release readiness and device verification)
+
+75. **Scope chosen by the product owner:** release readiness and a device verification plan. No new gameplay.
+76. **Identifiers are placeholders.** `com.chromalab.app` for iOS and Android, version 1.0.0, build numbers managed by EAS (`appVersionSource: remote`, production `autoIncrement`). The owner must confirm them before the first store build.
+77. **Branding is placeholder art.** The scaffold's default Expo icon and splash were replaced by a four-colour test tube on the lab navy, drawn as SVG in `assets/branding/` and rendered to the PNGs. The iOS icon has no alpha. Final art replaces these files.
+78. **Permissions:** none needed; microphone, storage and overlay permissions are blocked in `app.json`. `usesNonExemptEncryption` is false because there is no networking.
+79. **Privacy:** the app collects and transmits nothing (verified: no network calls in `src/`). A draft policy and store listing are in `docs/`; they must be reviewed, completed and hosted by the owner, and redone if analytics, ads or sync are ever enabled.
+80. **Expo docs were unreachable** from the build container (403), so config uses the long-stable schema and was checked with `expo config` only. `features.specialMechanics` was stale (unused, false) and is now true.
+81. **`expo-asset` added.** `expo-doctor` reported it as a required peer of `expo-audio`; without it a development or production build could crash on launch (Expo Go hides this). `expo-doctor` now passes 19 of 21; the other two checks (config schema, React Native Directory) need network access that the build container lacks.
+82. **Not verified without a device:** everything in `docs/DEVICE_TEST_PLAN.md`; the first EAS build is the real test of the identifiers and icons.

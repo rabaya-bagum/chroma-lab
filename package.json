@@ -45,9 +45,10 @@
     "typecheck": "tsc --noEmit",
     "levels:generate": "tsx scripts/generate-levels.ts",
     "levels:verify": "tsx scripts/verify-levels.ts",
-    "web:setup": "mkdir -p public && cp node_modules/canvaskit-wasm/bin/full/canvaskit.wasm public/",
-    "web": "expo start --web",
-    "lint": "eslint ."
+    "web:setup": "node scripts/setup-web.js",
+    "web": "node scripts/setup-web.js && expo start --web",
+    "lint": "eslint .",
+    "postinstall": "node scripts/setup-web.js"
   },
   "private": true,
   "jest": {

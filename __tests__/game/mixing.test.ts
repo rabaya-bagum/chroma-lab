@@ -211,3 +211,26 @@ describe('chapter 7 catalysts', () => {
     }
   });
 });
+
+describe('rules panel', () => {
+  const { shouldAutoOpenRules, panelRules } = jest.requireActual('../../src/game/mechanicsText') as typeof import('../../src/game/mechanicsText');
+  const { LEVELS } = jest.requireActual('../../src/data/levels') as typeof import('../../src/data/levels');
+  const level = (n: number) => LEVELS.find((l) => l.number === n)!;
+
+  it('classic levels have no rules to show', () => {
+    expect(panelRules(level(10))).toEqual([]);
+    expect(shouldAutoOpenRules(level(10), 0, 0)).toBe(false);
+  });
+  it('opens by itself on the first play of a level with special rules', () => {
+    expect(shouldAutoOpenRules(level(75), 0, 0)).toBe(true);
+    expect(shouldAutoOpenRules(level(26), 0, 0)).toBe(true);
+  });
+  it('stays closed after a completion, on a resumed board, and where a tutorial explains the rules', () => {
+    expect(shouldAutoOpenRules(level(75), 1, 0)).toBe(false);
+    expect(shouldAutoOpenRules(level(75), 0, 3)).toBe(false);
+    expect(shouldAutoOpenRules(level(56), 0, 0)).toBe(false); // mixing tutorial
+  });
+  it('the reactor line is left to the meter', () => {
+    expect(panelRules(level(70)).some((l) => l.startsWith('Reactor'))).toBe(false);
+  });
+});

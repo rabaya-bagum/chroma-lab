@@ -23,3 +23,15 @@ export function describeMechanics(level: Level): string[] {
   if (level.rules?.reactor) lines.push(`Reactor: finish within ${level.rules.reactor.moveLimit} moves for a bonus.`);
   return lines;
 }
+
+/** The rules worth showing in the panel: the reactor limit has its own meter. */
+export const panelRules = (level: Level): string[] => describeMechanics(level).filter((l) => !l.startsWith('Reactor'));
+
+/**
+ * Whether the rules briefing opens by itself: on the first play of a level that
+ * has special rules, unless a tutorial is already explaining it or the player is
+ * resuming a half-played board.
+ */
+export function shouldAutoOpenRules(level: Level, completions: number, movesMade: number): boolean {
+  return panelRules(level).length > 0 && completions === 0 && movesMade === 0 && !level.tutorial;
+}

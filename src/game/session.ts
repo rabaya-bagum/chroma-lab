@@ -19,7 +19,13 @@ export function createInitialState(level: Level): GameState {
     };
     return { ...tube, sealed: !tube.locked && isTubeComplete(tube) };
   });
-  return { levelId: level.id, tubes: tubes.map(revealTop), moves: 0 };
+  const pairs = level.rules?.mixing?.pairs;
+  return {
+    levelId: level.id,
+    tubes: tubes.map(revealTop),
+    moves: 0,
+    ...(pairs ? { mix: pairs.map((p) => ({ ...p })) } : {}),
+  };
 }
 
 /** A hidden layer is never on top (§5.1): a board that starts with one on top shows its true colour. */

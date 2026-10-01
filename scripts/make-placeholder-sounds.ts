@@ -8,7 +8,7 @@ mkdirSync(dir, { recursive: true });
 // name -> duration in seconds
 const FILES: Record<string, number> = {
   pour: 0.6, glass_tap: 0.15, invalid: 0.2, tube_complete: 0.7, button: 0.1,
-  win: 2.0, unlock: 0.8, coin: 0.3, reveal: 0.6, thaw: 0.9, ambient_lab: 4.0,
+  win: 2.0, unlock: 0.8, coin: 0.3, reveal: 0.6, thaw: 0.9, mix: 0.5, ambient_lab: 4.0,
 };
 
 function silentWav(seconds: number): Buffer {

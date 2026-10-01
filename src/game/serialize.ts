@@ -44,7 +44,8 @@ function parseTube(v: unknown): TubeState | null {
   return { id, capacity, liquids: layers, locked, sealed, catalystSpent, isExtra };
 }
 
-function parseState(v: unknown, levelId: string): GameState | null {
+function parseState(v: unknown, level: Level): GameState | null {
+  const levelId = level.id;
   if (!isObj(v) || v.levelId !== levelId || !isCount(v.moves) || !Array.isArray(v.tubes)) return null;
   const tubes: TubeState[] = [];
   for (const t of v.tubes) {
@@ -52,11 +53,16 @@ function parseState(v: unknown, levelId: string): GameState | null {
     if (!tube) return null;
     tubes.push(tube);
   }
-  return { levelId, tubes, moves: v.moves };
+  const pairs = level.rules?.mixing?.pairs;
+  return { levelId, tubes, moves: v.moves, ...(pairs ? { mix: pairs.map((p) => ({ ...p })) } : {}) };
 }
 
 /** Units per colour; identical across every snapshot of a session. */
 function colorCounts(state: GameState): string {
+  if (state.mix) {
+    // Mixing changes colours but conserves volume.
+    return String(state.tubes.reduce((n, t) => n + t.liquids.length, 0));
+  }
   const counts: Record<string, number> = {};
   for (const t of state.tubes) for (const l of t.liquids) counts[l.color] = (counts[l.color] ?? 0) + 1;
   return JSON.stringify(Object.keys(counts).sort().map((c) => [c, counts[c]]));
@@ -74,12 +80,12 @@ export function deserializeSession(json: string, levels: readonly Level[]): Sess
   const level = levels.find((l) => l.id === raw.levelId);
   if (!level) return null;
 
-  const initial = parseState(raw.initial, level.id);
-  const current = parseState(raw.current, level.id);
+  const initial = parseState(raw.initial, level);
+  const current = parseState(raw.current, level);
   if (!initial || !current || !Array.isArray(raw.history)) return null;
   const history: GameState[] = [];
   for (const h of raw.history) {
-    const s = parseState(h, level.id);
+    const s = parseState(h, level);
     if (!s) return null;
     history.push(s);
   }

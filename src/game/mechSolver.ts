@@ -1,12 +1,12 @@
 import { pourLiquid } from './pour';
 import { getValidMoves, isPuzzleSolved } from './rules';
 import type { SearchOutcome } from './solver';
-import type { Condition, GameState, Level, Move, TubeState } from './types';
+import type { Condition, GameState, Level, MixPair, Move, TubeState } from './types';
 import { COLOR_LETTERS } from './levelCodec';
 
 /** True if the level uses any section 11 mechanic, so the fast classic solver cannot be used. */
 export function hasMechanics(level: Level): boolean {
-  return level.tubes.some((t) => t.lock || t.thawWhen || t.catalyst || t.liquids.some((l) => l.frozen || l.hidden));
+  return !!level.rules?.mixing || level.tubes.some((t) => t.lock || t.thawWhen || t.catalyst || t.liquids.some((l) => l.frozen || l.hidden));
 }
 
 const movesThreshold = (c: Condition | undefined) => (c?.type === 'movesMade' ? c.count : 0);
@@ -48,9 +48,30 @@ function runCount(s: GameState): number {
 /** Complete tubes at the goal: one per `minCapacity` units of each colour. */
 function goalRuns(s: GameState): number {
   const minCap = Math.min(...s.tubes.map((t) => t.capacity));
+  if (s.mix) return Math.floor(s.tubes.reduce((n, t) => n + t.liquids.length, 0) / minCap);
   const units: Record<string, number> = {};
   for (const t of s.tubes) for (const l of t.liquids) units[l.color] = (units[l.color] ?? 0) + 1;
   return Object.values(units).reduce((a, n) => a + Math.floor(n / minCap), 0);
+}
+
+/**
+ * Lower bound on the pours a mixing board still needs. A normal pour removes at
+ * most one colour run; a mixing pour at most two (the poured unit's run and a
+ * merge of the new pair with the layer below). Mixing consumes one unit of each
+ * input colour, so there are at most floor(inputUnits / 2) of them, or, if a
+ * result colour can itself be mixed again, floor(units / 2).
+ */
+function mixHeuristic(s: GameState, pairs: readonly MixPair[], runs: number, goal: number): number {
+  const d = runs - goal;
+  if (d <= 0) return 0;
+  const inputs = new Set<string>();
+  const results = new Set<string>();
+  for (const p of pairs) { inputs.add(p.a); inputs.add(p.b); results.add(p.result); }
+  const chained = [...results].some((c) => inputs.has(c));
+  let units = 0;
+  for (const t of s.tubes) for (const l of t.liquids) if (chained || inputs.has(l.color)) units++;
+  const maxMix = Math.floor(units / 2);
+  return Math.max(Math.ceil(d / 2), d - maxMix);
 }
 
 interface Node { state: GameState; g: number; parent: number; from: number; to: number }
@@ -100,7 +121,8 @@ const YIELD_CHECK_EVERY = 16;
  * modelled exactly as played, hidden layers by their true colour.
  *
  * Admissible heuristic: colour runs minus goal runs. A pour changes the run
- * count by at most one, and reveals, thaws and unlocks never change it.
+ * count by at most one, and reveals, thaws and unlocks never change it. Mixing
+ * levels use `mixHeuristic`, since a mixing pour can remove two runs.
  */
 export class MechSearch {
   private readonly nodes: Node[];
@@ -108,18 +130,23 @@ export class MechSearch {
   private readonly open = new Heap();
   private readonly keyOf: (s: GameState) => string;
   private readonly X: number;
+  private readonly pairs: readonly MixPair[] | undefined;
   private expansions = 0;
 
   constructor(private readonly level: Level, start: GameState, private readonly weight: number, private readonly maxNodes: number) {
     this.keyOf = makeKeyer(level);
     this.X = goalRuns(start);
+    this.pairs = level.rules?.mixing?.pairs;
     this.nodes = [{ state: start, g: 0, parent: -1, from: -1, to: -1 }];
     this.best.set(this.keyOf(start), 0);
     this.open.push(weight * this.h(start), 0, 0);
   }
 
   get nodeCount() { return this.nodes.length; }
-  private h(s: GameState) { return Math.max(0, runCount(s) - this.X); }
+  private h(s: GameState) {
+    const runs = runCount(s);
+    return this.pairs ? mixHeuristic(s, this.pairs, runs, this.X) : Math.max(0, runs - this.X);
+  }
 
   run(shouldYield?: () => boolean): SearchOutcome | null {
     const { nodes, best, open, weight, level } = this;

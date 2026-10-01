@@ -1,6 +1,7 @@
 import { isConditionMet } from './conditions';
+import { isMixPour, mixResult } from './mixing';
 import { getMoveError, isTubeComplete, isPuzzleSolved, topRunLength } from './rules';
-import type { CatalystEffect, GameEvent, GameState, Level, TubeDef, TubeState } from './types';
+import type { CatalystEffect, GameEvent, GameState, Level, LiquidColor, TubeDef, TubeState } from './types';
 
 /**
  * Apply one pour and return the new state plus events in §5.5 order:
@@ -17,6 +18,22 @@ export function pourLiquid(
 
   const src = state.tubes[from];
   const dst = state.tubes[to];
+
+  if (isMixPour(state, from, to)) {
+    const poured = src.liquids[src.liquids.length - 1];
+    const under = dst.liquids[dst.liquids.length - 1];
+    const result = mixResult(state.mix, poured.color, under.color)!;
+    const tubes: TubeState[] = state.tubes.slice();
+    tubes[from] = { ...src, liquids: src.liquids.slice(0, -1) };
+    tubes[to] = { ...dst, liquids: [...dst.liquids.slice(0, -1), { color: result }, { color: result }] };
+    const events: GameEvent[] = [
+      { type: 'poured', from, to, color: poured.color, amount: 1 },
+      { type: 'mixed', from, to, poured: poured.color, with: under.color, result },
+    ];
+    const next = settle(level, { ...state, tubes, moves: state.moves + 1 }, events, to, poured.color, result);
+    return { state: next, events };
+  }
+
   const amount = Math.min(topRunLength(src), dst.capacity - dst.liquids.length);
   const color = src.liquids[src.liquids.length - 1].color;
 
@@ -36,7 +53,14 @@ const defOf = (level: Level, tube: TubeState): TubeDef | undefined => level.tube
  * steps repeat until nothing changes (bounded by the number of tubes). The
  * catalyst only reacts to the pour itself, so it is checked on the first pass.
  */
-function settle(level: Level, state: GameState, events: GameEvent[], pourTo: number, pourColor: GameState['tubes'][number]['liquids'][number]['color']): GameState {
+function settle(
+  level: Level,
+  state: GameState,
+  events: GameEvent[],
+  pourTo: number,
+  pourColor: LiquidColor,
+  mixColor?: LiquidColor,
+): GameState {
   const tubes = state.tubes.slice();
   const view = (): GameState => ({ ...state, tubes });
   const bound = tubes.length * 6 + 10;
@@ -68,7 +92,7 @@ function settle(level: Level, state: GameState, events: GameEvent[], pourTo: num
     if (first) {
       const t = tubes[pourTo];
       const cat = defOf(level, t)?.catalyst;
-      if (cat && !t.catalystSpent && pourColor === cat.triggerColor) {
+      if (cat && !t.catalystSpent && (pourColor === cat.triggerColor || mixColor === cat.triggerColor)) {
         tubes[pourTo] = { ...t, catalystSpent: true };
         events.push({ type: 'catalystActivated', tube: pourTo, effect: cat.effect });
         if (applyEffect(level, tubes, cat.effect, events)) changed = true;

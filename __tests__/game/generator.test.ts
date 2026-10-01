@@ -63,8 +63,8 @@ describe('generateLevel', () => {
 
 describe('shipped levels', () => {
   const classic = LEVELS.slice(0, 25);
-  it('there are 55 consecutive levels: 25 classic and 30 with mechanics', () => {
-    expect(LEVELS).toHaveLength(55);
+  it('there are 65 consecutive levels: 25 classic, 30 with mechanics and 10 with mixing', () => {
+    expect(LEVELS).toHaveLength(65);
     expect(verifyLevelSet(LEVELS)).toEqual([]);
   });
   it.each(LEVELS.map((l) => [l.id, l] as const))('%s is solvable with the recorded optimum', (_id, level) => {

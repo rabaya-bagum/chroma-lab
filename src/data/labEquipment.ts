@@ -2,7 +2,7 @@ export interface LabEquipment {
   id: string;
   name: string;
   stars: number;
-  /** Reachable with the stars available in the shipped levels (55 levels, 165 stars). */
+  /** Reachable with the stars available in the shipped levels (65 levels, 195 stars). */
   mvp: boolean;
 }
 
@@ -14,7 +14,7 @@ export const LAB_EQUIPMENT: readonly LabEquipment[] = [
   { id: 'arm', name: 'Robotic Arm', stars: 65, mvp: true },
   { id: 'quantum', name: 'Quantum Analyzer', stars: 100, mvp: true },
   { id: 'reactor', name: 'Advanced Reactor', stars: 140, mvp: true },
-  { id: 'hologram', name: 'Holographic Display', stars: 180, mvp: false },
+  { id: 'hologram', name: 'Holographic Display', stars: 180, mvp: true },
 ];
 
 export const earnedEquipment = (starsTotal: number): string[] =>

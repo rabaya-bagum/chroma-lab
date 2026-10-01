@@ -33,6 +33,7 @@ export function describeEvents(events: GameEvent[], _state?: GameState): string 
   const parts: string[] = [];
   for (const e of events) {
     if (e.type === 'poured') parts.push(`Poured ${e.amount} ${name(e.color)} from tube ${e.from + 1} to tube ${e.to + 1}.`);
+    else if (e.type === 'mixed') parts.push(`Mixed ${name(e.poured)} with ${name(e.with)} into two ${name(e.result)}.`);
     else if (e.type === 'tubeCompleted') parts.push(`Tube ${e.tube + 1} complete.`);
     else if (e.type === 'revealed') parts.push(`Tube ${e.tube + 1}: a ${name(e.color)} layer is revealed.`);
     else if (e.type === 'thawed') parts.push(`Tube ${e.tube + 1} has thawed.`);

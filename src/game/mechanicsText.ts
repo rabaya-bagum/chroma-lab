@@ -19,6 +19,7 @@ export function describeMechanics(level: Level): string[] {
   for (const t of level.tubes) {
     if (t.catalyst) lines.push(`Pour ${COLOR_NAMES[t.catalyst.triggerColor].toLowerCase()} into the glowing tube to ${effectText(t.catalyst.effect)}.`);
   }
+  if (level.rules?.mixing) lines.push('Pour a colour onto a different one to mix a new colour. One drop moves, and the tube needs room.');
   if (level.rules?.reactor) lines.push(`Reactor: finish within ${level.rules.reactor.moveLimit} moves for a bonus.`);
   return lines;
 }

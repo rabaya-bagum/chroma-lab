@@ -92,3 +92,45 @@ describe('colour mixing', () => {
     expect(colours(back!.current, 1)).toEqual(['blue', 'blue']);
   });
 });
+
+describe('solving mixing levels', () => {
+  const { MechSearch, hasMechanics } = jest.requireActual('../../src/game/mechSolver') as typeof import('../../src/game/mechSolver');
+  const { solveLevel } = jest.requireActual('../../src/game/solver') as typeof import('../../src/game/solver');
+  const { isPuzzleSolved } = jest.requireActual('../../src/game/rules') as typeof import('../../src/game/rules');
+
+  it('a mixing level is solved with a mixing pour, and is unsolvable with mixing off', () => {
+    // Two red and two blue cannot fill any tube of four; mixing makes four purple.
+    const level = mixLevel(['RR', 'BB', '']);
+    expect(hasMechanics(level)).toBe(true);
+    const res = solveLevel(level);
+    expect(res.solvable).toBe(true);
+    expect(res.exact).toBe(true);
+    const off = { ...level, rules: undefined } as Level;
+    expect(solveLevel(off).solvable).toBe(false);
+  });
+
+  it('solutions replay through the engine and the heuristic is admissible', () => {
+    // Deterministic pseudo-random small boards.
+    let seed = 12345;
+    const rnd = (n: number) => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff), seed % n);
+    const pool = ['R', 'B', 'Y', 'C'];
+    let checked = 0;
+    for (let k = 0; k < 40; k++) {
+      const letters = Array.from({ length: 8 + rnd(3) }, () => pool[rnd(pool.length)]);
+      const rows = ['', '', '', ''];
+      letters.forEach((c, i) => { if (rows[i % 3].length < 4) rows[i % 3] += c; });
+      const level = mixLevel(rows);
+      const start = createInitialState(level);
+      const exact = new MechSearch(level, start, 0, 60_000).run()!;   // plain Dijkstra
+      const guided = new MechSearch(level, start, 1, 60_000).run()!;
+      if (exact.status !== 'solved') continue;
+      expect(guided.status).toBe('solved');
+      expect(guided.solution!.length).toBe(exact.solution!.length);
+      let s = createSession(level);
+      for (const m of guided.solution!) s = applyMove(s, m).session;
+      expect(isPuzzleSolved(s.current)).toBe(true);
+      checked++;
+    }
+    expect(checked).toBeGreaterThan(5);
+  });
+});

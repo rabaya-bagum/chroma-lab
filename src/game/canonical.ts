@@ -40,7 +40,13 @@ function permutations<T>(items: T[]): T[][] {
  * relabelling of colours (§10.3 duplicate detection). Exact: tries every
  * colour permutation and keeps the smallest sorted-tube key.
  */
-export function levelCanonicalKey(level: Pick<Level, 'tubes'>): string {
+export function levelCanonicalKey(level: Pick<Level, 'tubes' | 'rules'>): string {
+  const mixing = level.rules?.mixing;
+  if (mixing) {
+    // Colours carry meaning in a recipe (red + blue = purple), so they are not interchangeable.
+    const pairs = mixing.pairs.map((p) => [p.a, p.b].sort().join('+') + '=' + p.result).sort().join(';');
+    return 'mix[' + pairs + ']' + level.tubes.map((t) => tubeToken(t, undefined, rulesToken(t))).sort().join(',');
+  }
   const present = ALL_COLORS.filter((c) => level.tubes.some((t) => t.liquids.some((l) => l.color === c)));
   const letters = present.map((c) => COLOR_LETTERS[c as LiquidColor]);
   let best: string | null = null;

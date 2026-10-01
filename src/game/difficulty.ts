@@ -160,9 +160,30 @@ const CH7_ROWS: MixRow[] = [
   { number: 75, difficulty: 'expert', recipe: { counts: BIG, pairs: ALL_PAIRS, empties: 1, hidden: { tubes: 2 }, frozen: { tubes: 1, layers: 1, cond: 'tubes' }, locked: true }, optMin: 18, optMax: 19 },
 ];
 
+/**
+ * Levels 76-85, chapter 8 Master Class: the same mechanics on bigger boards and with
+ * more of them stacked at once (mystery layers everywhere, several frozen or locked
+ * tubes, a catalyst in the mix). Windows sit at the top of what each recipe produces
+ * (17-20 moves; 150-deal scans); the first level of the chapter is deliberately gentler.
+ */
+const CH8_ROWS: MixRow[] = [
+  { number: 76, difficulty: 'expert', recipe: { counts: { R: 4, B: 2, Y: 2, C: 4, M: 4 }, pairs: ALL_PAIRS, empties: 1, hidden: { tubes: 'all' }, frozen: { tubes: 1, layers: 1, cond: 'moves' }, locked: true }, optMin: 14, optMax: 15 },
+  { number: 77, difficulty: 'expert', recipe: { counts: BIG, pairs: ALL_PAIRS, empties: 1, frozen: { tubes: 2, layers: 1, cond: 'tubes' }, locked: true }, optMin: 17, optMax: 18 },
+  { number: 78, difficulty: 'expert', recipe: { counts: BIG, pairs: ALL_PAIRS, empties: 2, frozen: { tubes: 2, layers: 2, cond: 'tubes' } }, optMin: 17, optMax: 18 },
+  { number: 79, difficulty: 'expert', recipe: { counts: BIG, pairs: ALL_PAIRS, empties: 1, hidden: { tubes: 'all' }, locked: true }, optMin: 17, optMax: 18 },
+  { number: 80, difficulty: 'expert', recipe: { counts: BIG, pairs: ALL_PAIRS, empties: 1, hidden: { tubes: 2 }, locked: true, catalyst: { effect: 'unlock' }, reactor: mixReactor }, optMin: 17, optMax: 18 },
+  { number: 81, difficulty: 'expert', recipe: { counts: BIG, pairs: ALL_PAIRS, empties: 1, hidden: { tubes: 'all' }, locked: true, catalyst: { effect: 'reveal' } }, optMin: 17, optMax: 18 },
+  { number: 82, difficulty: 'expert', recipe: { counts: BIG, pairs: ALL_PAIRS, empties: 2, hidden: { tubes: 'all' }, frozen: { tubes: 1, layers: 1, cond: 'moves' } }, optMin: 18, optMax: 19 },
+  { number: 83, difficulty: 'expert', recipe: { counts: BIG, pairs: ALL_PAIRS, empties: 1, hidden: { tubes: 'all' }, frozen: { tubes: 1, layers: 1, cond: 'tubes' }, locked: true }, optMin: 18, optMax: 19 },
+  { number: 84, difficulty: 'expert', recipe: { counts: BIG, pairs: ALL_PAIRS, empties: 1, hidden: { tubes: 'all' }, frozen: { tubes: 2, layers: 1, cond: 'moves' }, locked: true }, optMin: 19, optMax: 19 },
+  { number: 85, difficulty: 'expert', recipe: { counts: BIG, pairs: ALL_PAIRS, empties: 1, hidden: { tubes: 3 }, frozen: { tubes: 1, layers: 2, cond: 'tubes' }, locked: true }, optMin: 19, optMax: 20 },
+];
+
 export const MIX_CHAPTER = 6;
 export const MIXED_CHAPTER = 7;
+export const MASTER_CHAPTER = 8;
 export const MIX_SPECS: MixSpec[] = [
   ...MIX_ROWS.map((r) => ({ ...r, chapter: MIX_CHAPTER })),
   ...CH7_ROWS.map((r) => ({ ...r, chapter: MIXED_CHAPTER })),
+  ...CH8_ROWS.map((r) => ({ ...r, chapter: MASTER_CHAPTER })),
 ];

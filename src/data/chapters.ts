@@ -15,6 +15,7 @@ export const CHAPTERS: readonly ChapterDef[] = [
   { id: 5, name: 'Quantum Chemistry', firstLevel: 46, lastLevel: 55, blurb: 'Catalysts and locked tubes.' },
   { id: 6, name: 'Chromatic Synthesis', firstLevel: 56, lastLevel: 65, blurb: 'Pour one colour onto another to mix a new one.' },
   { id: 7, name: 'Full Spectrum', firstLevel: 66, lastLevel: 75, blurb: 'Mixing meets frost, mystery, locks and catalysts.' },
+  { id: 8, name: 'Master Class', firstLevel: 76, lastLevel: 85, blurb: 'Bigger boards, every mechanic at once.' },
 ];
 
 export const isChapterAvailable = (c: ChapterDef): boolean => c.firstLevel !== undefined;

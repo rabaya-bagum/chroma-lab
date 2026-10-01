@@ -142,6 +142,7 @@ describe('chapter 6', () => {
   const { levelCanonicalKey } = jest.requireActual('../../src/game/canonical') as typeof import('../../src/game/canonical');
   const chapter6 = LEVELS.filter((l) => l.chapter === 6);
   const chapter7 = LEVELS.filter((l) => l.chapter === 7);
+  const chapter8 = LEVELS.filter((l) => l.chapter === 8);
 
   it('has levels 56-65, all with mixing rules', () => {
     expect(chapter6.map((l) => l.number)).toEqual([56, 57, 58, 59, 60, 61, 62, 63, 64, 65]);
@@ -160,7 +161,21 @@ describe('chapter 6', () => {
     expect(uses((l) => l.tubes.some((t) => t.catalyst))).toBe(true);
   });
 
-  it.each([...chapter6, ...chapter7].map((l) => [l.id, l] as const))('%s cannot be solved with mixing off', (_id, level) => {
+  it('chapter 8 has levels 76-85, stacks the mechanics and ramps up', () => {
+    expect(chapter8.map((l) => l.number)).toEqual([76, 77, 78, 79, 80, 81, 82, 83, 84, 85]);
+    const kinds = (l: Level) => [
+      l.tubes.some((t) => t.liquids.some((x) => x.frozen)),
+      l.tubes.some((t) => t.liquids.some((x) => x.hidden)),
+      l.tubes.some((t) => t.lock),
+      l.tubes.some((t) => t.catalyst),
+    ].filter(Boolean).length;
+    expect(chapter8.every((l) => (l.rules?.mixing?.pairs.length ?? 0) === 3 && kinds(l) >= 1)).toBe(true);
+    expect(chapter8.filter((l) => kinds(l) >= 3).length).toBeGreaterThanOrEqual(4);
+    expect(chapter8[0].optimalMoves).toBeLessThan(chapter8[chapter8.length - 1].optimalMoves);
+    expect(chapter8.filter((l) => l.rules?.reactor)).toHaveLength(1);
+  });
+
+  it.each([...chapter6, ...chapter7, ...chapter8].map((l) => [l.id, l] as const))('%s cannot be solved with mixing off', (_id, level) => {
     expect(needsMixing(level)).toBe(true);
     // belt and braces: the real solver agrees on the board with the recipe removed
     const off = { ...level, rules: undefined } as Level;
@@ -195,7 +210,7 @@ describe('solver entry points', () => {
 describe('chapter 7 catalysts', () => {
   it('every catalyst level has the catalyst in its optimal line', () => {
     const { LEVELS } = jest.requireActual('../../src/data/levels') as typeof import('../../src/data/levels');
-    const withCatalyst = LEVELS.filter((l) => l.chapter === 7 && l.tubes.some((t) => t.catalyst));
+    const withCatalyst = LEVELS.filter((l) => l.chapter >= 7 && l.tubes.some((t) => t.catalyst));
     expect(withCatalyst.length).toBeGreaterThanOrEqual(4);
     for (const level of withCatalyst) {
       const res = solveLevel(level);
@@ -232,5 +247,27 @@ describe('rules panel', () => {
   });
   it('the reactor line is left to the meter', () => {
     expect(panelRules(level(70)).some((l) => l.startsWith('Reactor'))).toBe(false);
+  });
+});
+
+describe('every recipe request is honoured', () => {
+  const { LEVELS } = jest.requireActual('../../src/data/levels') as typeof import('../../src/data/levels');
+  const { MIX_SPECS } = jest.requireActual('../../src/game/difficulty') as typeof import('../../src/game/difficulty');
+
+  it.each(MIX_SPECS.map((sp) => [sp.number, sp] as const))('level %i has the mechanics its recipe asks for', (_n, spec) => {
+    const level = LEVELS.find((l) => l.number === spec.number)!;
+    const r = spec.recipe;
+    const frozenTubes = level.tubes.filter((t) => t.liquids.some((x) => x.frozen));
+    if (r.frozen) {
+      expect(frozenTubes.length).toBe(r.frozen.tubes);
+      expect(frozenTubes.every((t) => !!t.thawWhen)).toBe(true);
+    }
+    if (r.catalyst?.effect === 'thaw') expect(frozenTubes.length).toBeGreaterThan(0);
+    if (r.hidden) expect(level.tubes.some((t) => t.liquids.some((x) => x.hidden))).toBe(true);
+    if (r.locked) expect(level.tubes.some((t) => !!t.lock)).toBe(true);
+    if (r.catalyst) expect(level.tubes.some((t) => !!t.catalyst)).toBe(true);
+    if (r.reactor) expect(level.rules?.reactor).toBeDefined();
+    // a layer is never frozen and hidden at once
+    expect(level.tubes.every((t) => t.liquids.every((x) => !(x.frozen && x.hidden)))).toBe(true);
   });
 });

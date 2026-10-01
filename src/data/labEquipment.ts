@@ -2,7 +2,7 @@ export interface LabEquipment {
   id: string;
   name: string;
   stars: number;
-  /** Reachable with the stars available in the shipped levels (75 levels, 225 stars). */
+  /** Reachable with the stars available in the shipped levels (85 levels, 255 stars). */
   mvp: boolean;
 }
 

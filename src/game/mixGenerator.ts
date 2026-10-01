@@ -89,11 +89,18 @@ export function buildMixCandidate(spec: MixSpec, seed: string, rng: Rng): Level 
   let frozenIdx: number[] = [];
   if (r.frozen || r.catalyst?.effect === 'thaw') {
     const f = r.frozen ?? { tubes: 1, layers: 2, cond: 'moves' as CondKind };
-    const pool = rng.shuffle(tubes.map((_, i) => i).filter((i) => tubes[i].liquids.length > 0 && !tubes[i].liquids.some((l) => l.hidden)));
+    const filled = tubes.map((_, i) => i).filter((i) => tubes[i].liquids.length > 0);
+    const pool = rng.shuffle(filled.filter((i) => !tubes[i].liquids.some((l) => l.hidden)));
+    // When every tube is mystery ('all'), frost goes on mystery tubes too: the frozen layers are shown, the rest stay hidden.
+    if (pool.length < f.tubes) pool.push(...rng.shuffle(filled.filter((i) => tubes[i].liquids.some((l) => l.hidden))));
     frozenIdx = pool.slice(0, f.tubes);
     for (const i of frozenIdx) {
       const t = tubes[i];
-      t.liquids = t.liquids.map((l, k) => (k < f.layers ? { ...l, frozen: true } : l));
+      t.liquids = t.liquids.map((l, k) => {
+        if (k >= f.layers) return l;
+        const { hidden: _h, ...rest } = l;
+        return { ...rest, frozen: true };
+      });
       const frozenColors = t.liquids.filter((l) => l.frozen).map((l) => l.color);
       t.thawWhen = r.catalyst?.effect === 'thaw' ? BACKUP : condition(rng, f.cond, frozenColors, present);
       claimed.add(i);

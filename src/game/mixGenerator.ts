@@ -1,11 +1,13 @@
 import { levelCanonicalKey } from './canonical';
 import { dealRowOk, GENERATOR_VERSION } from './generator';
+import { BACKUP, condition, pick } from './mechGenerator';
+import type { CondKind } from './mechGenerator';
 import type { GenerateOptions } from './generator';
 import { tubeFromString } from './levelCodec';
 import { RBY_PAIRS } from './mixing';
 import { applyMove, createSession } from './session';
 import { solveLevel } from './solver';
-import type { Condition, Difficulty, Level, MixPair, TubeDef } from './types';
+import type { Condition, Difficulty, Level, LiquidColor, MixPair, TubeDef } from './types';
 import { createRng } from '../utils/seededRandom';
 import type { Rng } from '../utils/seededRandom';
 
@@ -21,6 +23,13 @@ export interface MixRecipe {
   hidden?: { tubes: number | 'all' };
   /** One extra empty tube that opens after some moves. */
   locked?: boolean;
+  /** Tubes whose bottom layers start frozen (chapter 7). */
+  frozen?: { tubes: number; layers: number; cond: CondKind };
+  /**
+   * A catalyst whose trigger colour may be a mix result, so mixing opens the way.
+   * The target tube keeps a late backup condition so the catalyst is a shortcut, not the only route.
+   */
+  catalyst?: { effect: 'unlock' | 'thaw' | 'reveal' };
   reactor?: { slack: number; bonusCoins: number };
 }
 
@@ -75,7 +84,41 @@ export function buildMixCandidate(spec: MixSpec, seed: string, rng: Rng): Level 
       t.liquids = t.liquids.map((l, k) => (k < t.liquids.length - 1 ? { ...l, hidden: true } : l));
     }
   }
-  if (r.locked) tubes.push({ id: `T${tubes.length + 1}`, capacity: CAPACITY, liquids: [], lock: { unlockWhen: LOCK } });
+  const present = [...new Set(tubes.flatMap((t) => t.liquids.map((l) => l.color)))] as LiquidColor[];
+  const claimed = new Set<number>();
+  let frozenIdx: number[] = [];
+  if (r.frozen || r.catalyst?.effect === 'thaw') {
+    const f = r.frozen ?? { tubes: 1, layers: 2, cond: 'moves' as CondKind };
+    const pool = rng.shuffle(tubes.map((_, i) => i).filter((i) => tubes[i].liquids.length > 0 && !tubes[i].liquids.some((l) => l.hidden)));
+    frozenIdx = pool.slice(0, f.tubes);
+    for (const i of frozenIdx) {
+      const t = tubes[i];
+      t.liquids = t.liquids.map((l, k) => (k < f.layers ? { ...l, frozen: true } : l));
+      const frozenColors = t.liquids.filter((l) => l.frozen).map((l) => l.color);
+      t.thawWhen = r.catalyst?.effect === 'thaw' ? BACKUP : condition(rng, f.cond, frozenColors, present);
+      claimed.add(i);
+    }
+  }
+  const lockedIdx: number[] = [];
+  if (r.locked) {
+    tubes.push({ id: `T${tubes.length + 1}`, capacity: CAPACITY, liquids: [], lock: { unlockWhen: r.catalyst?.effect === 'unlock' ? BACKUP : LOCK } });
+    lockedIdx.push(tubes.length - 1);
+    claimed.add(tubes.length - 1);
+  }
+  if (r.catalyst) {
+    const effect = r.catalyst.effect;
+    const hiddenIdx = tubes.map((_, i) => i).filter((i) => tubes[i].liquids.some((l) => l.hidden));
+    const targets = effect === 'unlock' ? lockedIdx : effect === 'thaw' ? frozenIdx : hiddenIdx;
+    if (targets.length > 0) {
+      const target = pick(rng, targets);
+      const hosts = tubes.map((_, i) => i).filter((i) => !claimed.has(i) && i !== target);
+      const results = r.pairs.map((p) => RBY_PAIRS[p].result);
+      tubes[pick(rng, hosts)].catalyst = {
+        triggerColor: pick(rng, [...present, ...results]),
+        effect: { type: effect === 'unlock' ? 'unlockTube' : effect === 'thaw' ? 'thawTube' : 'revealTube', tubeId: tubes[target].id },
+      };
+    }
+  }
   const pairs: MixPair[] = r.pairs.map((p) => ({ ...RBY_PAIRS[p] }));
   return {
     id: `L${String(spec.number).padStart(3, '0')}`,
@@ -109,13 +152,16 @@ export function generateMixLevel(spec: MixSpec, seed: string, opts: GenerateOpti
     if (res.optimal < spec.optMin || res.optimal > spec.optMax) continue;
 
     let mixes = 0;
+    let catalysts = 0;
     let s = createSession(draft);
     for (const m of res.solution!) {
       const r = applyMove(s, m);
       mixes += r.events.filter((e) => e.type === 'mixed').length;
+      catalysts += r.events.filter((e) => e.type === 'catalystActivated').length;
       s = r.session;
     }
     if (mixes === 0) continue;
+    if (spec.recipe.catalyst && catalysts === 0) continue; // the catalyst must be part of the best line
 
     const key = levelCanonicalKey(draft);
     if (opts.seen?.has(key)) continue;

@@ -1,5 +1,6 @@
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import type { AudioPlayer } from 'expo-audio';
+import { Platform } from 'react-native';
 import { useSettingsStore } from '../store/settingsStore';
 
 export type SoundName =
@@ -75,9 +76,34 @@ export function play(name: SoundName): void {
   }
 }
 
+/**
+ * Browsers refuse to start audio before the user has interacted with the page
+ * (autoplay policy), and the refusal is an async rejection a try/catch cannot
+ * catch. On web, music waits for the first pointer or key press.
+ */
+let webUnlocked = Platform.OS !== 'web';
+let unlockListening = false;
+
+function whenWebUnlocked(run: () => void): boolean {
+  if (webUnlocked) return true;
+  if (!unlockListening && typeof document !== 'undefined') {
+    unlockListening = true;
+    const unlock = () => {
+      webUnlocked = true;
+      document.removeEventListener('pointerdown', unlock, true);
+      document.removeEventListener('keydown', unlock, true);
+      run();
+    };
+    document.addEventListener('pointerdown', unlock, true);
+    document.addEventListener('keydown', unlock, true);
+  }
+  return false;
+}
+
 /** Start or stop the music loop to match the Music setting. */
 export function syncMusic(): void {
   if (!music) return;
+  if (!whenWebUnlocked(syncMusic)) return;
   try {
     if (useSettingsStore.getState().music) music.play();
     else music.pause();

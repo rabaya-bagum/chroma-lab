@@ -44,6 +44,21 @@ describe('loadDailyLevel', () => {
     expect(fromCache({ ...toCache(date, lvl), tubes: ['XYZ'] }, date)).toBeNull();
     expect(fromCache('junk', date)).toBeNull();
   });
+  it('keeps recent dates so an earlier daily can still be resumed', async () => {
+    const kv = new MemKV();
+    const a = (await loadDailyLevel('2026-10-01', { kv, maxAttempts: 0 })).level;
+    const b = (await loadDailyLevel('2026-10-02', { kv, maxAttempts: 0 })).level;
+    expect(await loadCachedDaily(kv, '2026-10-01')).toEqual(a);
+    expect(await loadCachedDaily(kv, '2026-10-02')).toEqual(b);
+    for (const d of ['2026-10-03', '2026-10-04']) await loadDailyLevel(d, { kv, maxAttempts: 0 });
+    expect(await loadCachedDaily(kv, '2026-10-01')).toBeNull(); // oldest dropped
+  });
+  it('reads a cache written in the older single-entry format', async () => {
+    const kv = new MemKV();
+    const lvl = levelFromPool(DAILY_POOL, date);
+    kv.data.set(DAILY_CACHE_KEY, JSON.stringify(toCache(date, lvl)));
+    expect(await loadCachedDaily(kv, date)).toEqual(lvl);
+  });
   it('falls back to the shipped pool when generation fails', async () => {
     const kv = new MemKV();
     const r = await loadDailyLevel(date, { kv, maxAttempts: 0 });

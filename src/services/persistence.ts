@@ -48,7 +48,12 @@ export async function initPersistence(): Promise<void> {
     if (!session) return;
     if (isPuzzleSolved(session.current)) { void persistence.clearSession(); return; }
     const prevSession = prev.session;
-    if (prevSession && prevSession.current === session.current && prevSession.extraTubeUsed === session.extraTubeUsed) return; // timer tick only
+    if (
+      prevSession &&
+      prevSession.current === session.current &&
+      prevSession.extraTubeUsed === session.extraTubeUsed &&
+      prevSession.hintsUsed === session.hintsUsed
+    ) return; // timer tick only
     persistence.scheduleSession(serializeSession(session));
   });
 

@@ -1,133 +1,320 @@
-import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { COLOR_NAMES, LIQUID_HEX, theme } from '../config/theme';
-import { COLOR_LETTERS } from '../game/levelCodec';
-import { selectDeadlocked, selectSolved, selectStars, useGameStore } from '../store/gameStore';
-import type { Level, TubeState } from '../game/types';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, AppState, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { COLOR_NAMES } from '../config/theme';
+import { extraTubeCost, hintCost } from '../config/economy';
+import { GameBoard } from '../components/GameBoard';
+import { GameControls } from '../components/GameControls';
+import { MechanicsNote } from '../components/MechanicsNote';
+import { ReactorMeter } from '../components/ReactorMeter';
+import { TopBar } from '../components/TopBar';
+import { TutorialOverlay } from '../components/TutorialOverlay';
+import { DailyWinOverlay, WinOverlay } from '../components/WinOverlay';
+import { COSMETIC_BY_ID } from '../data/cosmetics';
+import { LAB_EQUIPMENT } from '../data/labEquipment';
+import { findHint } from '../game/hints';
+import { isPuzzleSolved } from '../game/rules';
+import { calculateStars } from '../game/scoring';
+import { advanceTutorial, tutorialAllowsTap, tutorialHighlight } from '../game/tutorial';
+import type { TutorialStep } from '../game/tutorial';
+import type { Level } from '../game/types';
+import { useCosmetics } from '../render/useCosmetics';
+import { analytics } from '../services/analytics';
+import { audio } from '../services/audio';
+import { haptics } from '../services/haptics';
+import { leaderboard } from '../services/leaderboard';
+import { persistence } from '../services/persistence';
+import { selectDeadlocked, useGameStore } from '../store/gameStore';
+import { useProgressStore } from '../store/progressStore';
+import { useToastStore } from '../store/toastStore';
 
-// Phase 1: deliberately plain Views. Skia rendering arrives in Phase 2.
-const UNIT = 34;
+const WIN_SEQUENCE_MS = 2200;
+const HINT_RING_DELAY_MS = 650;
+const HINT_VISIBLE_MS = 6000;
 
-function describeTube(t: TubeState, index: number, total: number, selected: boolean): string {
-  const layers = t.liquids.map((l) => l.color).join(', ');
-  const free = t.capacity - t.liquids.length;
-  const state = t.sealed ? ', complete' : t.locked ? ', locked' : '';
-  return `Tube ${index + 1} of ${total}: ${layers ? `bottom to top ${layers}` : 'empty'}. ${free} free spaces${state}${selected ? ', selected' : ''}`;
+interface Props {
+  level: Level;
+  /** Run the tutorial even if it was completed before (Settings > Replay tutorial). */
+  forceTutorial?: boolean;
+  onExit(): void;
+  onNext?: () => void;
 }
 
-const TubeView = React.memo(function TubeView(props: {
-  tube: TubeState; index: number; total: number; selected: boolean; onPress(i: number): void;
-}) {
-  const { tube, index, total, selected, onPress } = props;
-  return (
-    <Pressable
-      onPress={() => onPress(index)}
-      accessibilityRole="button"
-      accessibilityLabel={describeTube(tube, index, total, selected)}
-      style={[styles.tubeHit, selected && styles.tubeLift]}
-    >
-      <View style={[styles.tube, selected && styles.tubeSelected, tube.sealed && styles.tubeSealed]}>
-        {Array.from({ length: tube.capacity }, (_, slot) => {
-          const layer = tube.liquids[tube.capacity - 1 - slot]; // render top slot first
-          return (
-            <View key={slot} style={[styles.unit, layer && { backgroundColor: LIQUID_HEX[layer.color] }]}>
-              {layer && <Text style={styles.unitText}>{COLOR_LETTERS[layer.color]}</Text>}
-            </View>
-          );
-        })}
-      </View>
-    </Pressable>
-  );
-});
-
-function Button(props: { label: string; onPress(): void; disabled?: boolean }) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={props.label}
-      accessibilityState={{ disabled: !!props.disabled }}
-      disabled={props.disabled}
-      onPress={props.onPress}
-      style={[styles.button, props.disabled && styles.buttonOff]}
-    >
-      <Text style={styles.buttonText}>{props.label}</Text>
-    </Pressable>
-  );
-}
-
-export function GameScreen(props: { level: Level; onExit(): void; onNext?: () => void }) {
-  const { level, onExit, onNext } = props;
+export function GameScreen({ level, forceTutorial, onExit, onNext }: Props) {
+  const insets = useSafeAreaInsets();
+  const { theme: labTheme } = useCosmetics();
+  const isDaily = level.number === 0;
   const session = useGameStore((s) => s.session);
   const selected = useGameStore((s) => s.selected);
-  const solved = useGameStore(selectSolved);
+  const lastEvents = useGameStore((s) => s.lastEvents);
+  const shake = useGameStore((s) => s.shake);
   const deadlocked = useGameStore(selectDeadlocked);
-  const stars = useGameStore(selectStars);
-  const { tap, undo, restart, addTube } = useGameStore.getState();
+  const coins = useProgressStore((s) => s.save.economy.coins);
+  const completion = useProgressStore((p) => p.lastCompletion);
+  const dailyResult = useProgressStore((p) => p.lastDaily);
+
+  const [busy, setBusy] = useState(false);
+  const [winPlaying, setWinPlaying] = useState(false);
+  const [overlayVisible, setOverlayVisible] = useState(false);
+  const [hinting, setHinting] = useState(false);
+  const [hintTubes, setHintTubes] = useState<number[]>([]);
+  const winTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hintTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const recorded = useRef(false);
+  const mounted = useRef(true);
+
+  const [tutorialDoneAtStart] = useState(() => useProgressStore.getState().save.progress.tutorialDone);
+  const tutorialEligible = level.tutorial === 'basics' && (!!forceTutorial || !tutorialDoneAtStart);
+  // a resumed, half-played board skips the tutorial rather than restarting it
+  const [tutStep, setTutStep] = useState<TutorialStep>(() =>
+    tutorialEligible && (useGameStore.getState().session?.current.moves ?? 0) === 0 ? 0 : 4);
+  const tutorialActive = tutStep < 4;
+
+  const solved = !!session && isPuzzleSolved(session.current);
+
+  const clearHint = useCallback(() => {
+    hintTimers.current.forEach(clearTimeout);
+    hintTimers.current = [];
+    setHintTubes([]);
+  }, []);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; hintTimers.current.forEach(clearTimeout); };
+  }, []);
+
+  // play time while the app is in the foreground
+  useEffect(() => {
+    const id = setInterval(() => { if (AppState.currentState === 'active') useGameStore.getState().tick(1000); }, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => () => { if (winTimer.current) clearTimeout(winTimer.current); audio.duckMusic(false); }, []);
+
+  // record the completion as soon as the puzzle is solved, so closing the app mid-celebration still saves it
+  useEffect(() => {
+    if (!solved) {
+      recorded.current = false;
+      useProgressStore.getState().clearCompletion();
+      useProgressStore.getState().clearDaily();
+      return;
+    }
+    if (recorded.current || !session) return;
+    recorded.current = true;
+    const progress = useProgressStore.getState();
+    if (isDaily) {
+      const r = progress.recordDaily(level, session);
+      void leaderboard.submitDaily(r.dateKey, r.moves, r.timeMs);
+      analytics.track('daily_complete', { moves: r.moves, timeMs: r.timeMs, streak: r.streak });
+    } else {
+      const r = progress.recordCompletion(level, session);
+      analytics.track('level_complete', { level: level.id, moves: r.moves, stars: r.stars });
+    }
+    void persistence.clearSession();
+  }, [solved, session, level, isDaily]);
+
+  const onTap = useCallback((tube: number) => {
+    const store = useGameStore.getState();
+    if (tutorialActive && !tutorialAllowsTap(tutStep, tube)) return;
+    clearHint();
+    const before = store.session?.current;
+    const action = store.tap(tube);
+    if (!action) return;
+    if (tutorialActive && before) setTutStep(advanceTutorial(tutStep, action, before));
+    switch (action.type) {
+      case 'select':
+      case 'moveSelection': haptics.trigger('select'); audio.play('glassTap'); break;
+      case 'deselect': audio.play('glassTap'); break;
+      case 'shake': audio.play('invalid'); if (action.warn) haptics.trigger('invalid'); break;
+      case 'pour': break; // pour sound and haptic start with the animation
+    }
+  }, [tutorialActive, tutStep, clearHint]);
+
+  const onMechanic = useCallback((kind: 'reveal' | 'thaw' | 'unlock' | 'catalyst') => {
+    audio.play(kind === 'reveal' ? 'reveal' : kind === 'thaw' ? 'thaw' : 'unlock');
+    haptics.trigger(kind === 'catalyst' ? 'tubeComplete' : 'select');
+  }, []);
+
+  const finishWin = useCallback(() => {
+    if (winTimer.current) clearTimeout(winTimer.current);
+    winTimer.current = null;
+    setWinPlaying(false);
+    setOverlayVisible(true);
+    audio.duckMusic(false);
+  }, []);
+
+  // toasts once the overlay is up: achievements, new cosmetics, new lab equipment
+  useEffect(() => {
+    if (!overlayVisible) return;
+    const toasts: { kind: 'achievement' | 'info'; title: string; message: string }[] = [];
+    const ach = isDaily ? dailyResult?.achievements : completion?.achievements;
+    for (const a of ach ?? []) toasts.push({ kind: 'achievement', title: a.name.toUpperCase(), message: `Achievement unlocked. +${a.reward} coins` });
+    for (const id of (isDaily ? dailyResult?.unlockedCosmetics : completion?.unlockedCosmetics) ?? []) {
+      const c = COSMETIC_BY_ID[id];
+      if (c) toasts.push({ kind: 'info', title: 'NEW IN COLLECTION', message: `${c.name} unlocked.` });
+    }
+    for (const id of completion?.unlockedEquipment ?? []) {
+      const e = LAB_EQUIPMENT.find((x) => x.id === id);
+      if (e) toasts.push({ kind: 'info', title: 'LABORATORY UPGRADE', message: `${e.name} installed.` });
+    }
+    const timers = toasts.map((t, i) => setTimeout(() => {
+      useToastStore.getState().show(t);
+      audio.play(t.kind === 'achievement' ? 'unlock' : 'coin');
+    }, 600 + i * 700));
+    if ((isDaily ? dailyResult?.coinsEarned : completion?.coinsEarned) ?? 0) audio.play('coin');
+    return () => timers.forEach(clearTimeout);
+  }, [overlayVisible, completion, dailyResult, isDaily]);
+
+  const onSolved = useCallback(() => {
+    audio.play('win');
+    audio.duckMusic(true);
+    haptics.trigger('levelComplete');
+    setWinPlaying(true);
+    winTimer.current = setTimeout(finishWin, WIN_SEQUENCE_MS);
+  }, [finishWin]);
+
+  const restart = useCallback(() => {
+    const go = () => {
+      audio.play('button'); clearHint(); setOverlayVisible(false); setWinPlaying(false);
+      useGameStore.getState().restart(); if (tutorialEligible) setTutStep(0);
+    };
+    const moves = useGameStore.getState().session?.current.moves ?? 0;
+    if (moves >= 5) {
+      Alert.alert('Restart level?', 'Your progress on this level will be lost.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Restart', style: 'destructive', onPress: go },
+      ]);
+    } else go();
+  }, [tutorialEligible, clearHint]);
+
+  const effectiveNumber = level.number; // 0 (daily) uses the paid rates
+  const addTube = useCallback(() => {
+    const cost = extraTubeCost(effectiveNumber);
+    if (cost > 0 && !useProgressStore.getState().spend(cost)) {
+      useToastStore.getState().show({ kind: 'warn', title: 'NOT ENOUGH COINS', message: `An extra tube costs ${cost} coins.` });
+      return;
+    }
+    audio.play('button');
+    clearHint();
+    useGameStore.getState().addTube();
+  }, [effectiveNumber, clearHint]);
+
+  const onHint = useCallback(async () => {
+    const store = useGameStore.getState();
+    const s = store.session;
+    if (!s || hinting) return;
+    const cost = hintCost(effectiveNumber, s.hintsUsed);
+    if (useProgressStore.getState().save.economy.coins < cost) return;
+    clearHint();
+    setHinting(true);
+    const board = s.current;
+    const result = await findHint(board, { level }); // sliced across frames; never blocks animation
+    if (!mounted.current) return;
+    setHinting(false);
+    // the player moved on while the search ran: drop the stale answer
+    if (useGameStore.getState().session?.current !== board) return;
+    const toast = useToastStore.getState().show;
+    if (result.kind === 'unsolvable') {
+      toast({ kind: 'warn', title: 'HINT', message: 'This mixture is unstable — try Undo.' });
+      return;
+    }
+    if (result.kind !== 'move') {
+      if (result.kind === 'unknown') toast({ kind: 'info', title: 'HINT', message: 'No hint available right now.' });
+      return;
+    }
+    if (cost > 0 && !useProgressStore.getState().spend(cost)) return;
+    store.addHintUsed();
+    analytics.track('hint_used', { level: level.id, cost });
+    audio.play('button');
+    setHintTubes([result.move.from]);
+    hintTimers.current.push(setTimeout(() => setHintTubes([result.move.from, result.move.to]), HINT_RING_DELAY_MS));
+    hintTimers.current.push(setTimeout(() => setHintTubes([]), HINT_VISIBLE_MS));
+    toast({ kind: 'info', title: 'HINT', message: `Try moving ${COLOR_NAMES[result.color].toUpperCase()} here.` });
+  }, [hinting, effectiveNumber, clearHint, level]);
 
   if (!session) return null;
-  const { tubes, moves } = session.current;
+  const { moves } = session.current;
+  const stars = calculateStars(moves, level, session);
+  const cost = extraTubeCost(effectiveNumber);
+  const nextHintCost = hintCost(effectiveNumber, session.hintsUsed);
+  const highlight = tutorialActive ? tutorialHighlight(tutStep) : hintTubes;
 
   return (
-    <View style={styles.root}>
-      <View style={styles.top}>
-        <Button label="BACK" onPress={onExit} />
-        <Text style={styles.title} accessibilityRole="header">LEVEL {level.number}</Text>
-        <Text style={styles.moves}>Moves {moves}</Text>
+    <View style={[styles.root, { backgroundColor: labTheme.bg, paddingTop: insets.top + 8, paddingBottom: insets.bottom + 8 }]}>
+      <TopBar
+        levelNumber={level.number} moves={moves} stars={stars} coins={coins} onBack={onExit}
+        title={isDaily ? 'DAILY EXPERIMENT' : undefined} showStars={!isDaily}
+      />
+
+      <ReactorMeter level={level} moves={moves} />
+      <MechanicsNote level={level} />
+
+      {tutorialActive && <TutorialOverlay step={tutStep} canSkip={tutorialDoneAtStart} onSkip={() => setTutStep(4)} />}
+
+      <View style={styles.board}>
+        <GameBoard
+          level={level}
+          current={session.current}
+          events={lastEvents}
+          selected={selected}
+          shake={shake}
+          onTap={onTap}
+          onBackgroundTap={() => { const s = useGameStore.getState().selected; if (s !== null) onTap(s); }}
+          highlight={highlight}
+          onPourStart={() => { haptics.trigger('pour'); audio.play('pour'); }}
+          onTubeComplete={() => { audio.play('tubeComplete'); haptics.trigger('tubeComplete'); }}
+          onSolved={onSolved}
+          onMechanic={onMechanic}
+          onBusyChange={setBusy}
+        />
+        {winPlaying && (
+          <Pressable style={StyleSheet.absoluteFill} onPress={finishWin} accessibilityLabel="Skip celebration" accessibilityRole="button" />
+        )}
       </View>
 
-      <ScrollView contentContainerStyle={styles.board}>
-        {tubes.map((t, i) => (
-          <TubeView key={t.id} tube={t} index={i} total={tubes.length} selected={selected === i} onPress={tap} />
-        ))}
-      </ScrollView>
-
-      {deadlocked && !solved && (
-        <Text style={styles.banner}>No moves left. Undo, Restart or add a tube.</Text>
-      )}
-      {solved && stars !== null && (
-        <View style={styles.win}>
-          <Text style={styles.winTitle}>EXPERIMENT COMPLETE</Text>
-          <Text style={styles.winText}>{stars} of 3 stars, {moves} moves (best possible {level.optimalMoves})</Text>
-          <View style={styles.row}>
-            {onNext && <Button label="NEXT" onPress={onNext} />}
-            <Button label="REPLAY" onPress={restart} />
-            <Button label="LEVELS" onPress={onExit} />
-          </View>
+      {deadlocked && !solved && !busy && (
+        <View style={styles.banner} accessibilityLiveRegion="polite">
+          <Text maxFontSizeMultiplier={1.3} style={styles.bannerText}>This mixture is stuck. Undo, Restart or add a tube.</Text>
         </View>
       )}
 
-      <View style={styles.row}>
-        <Button label="UNDO" onPress={undo} disabled={session.history.length === 0 || solved} />
-        <Button label="RESTART" onPress={restart} />
-        <Button label="+ TUBE" onPress={addTube} disabled={session.extraTubeUsed || solved} />
-      </View>
-      <Text style={styles.legend} accessibilityElementsHidden importantForAccessibility="no">
-        {Object.entries(COLOR_LETTERS).map(([c, l]) => `${l} ${COLOR_NAMES[c as keyof typeof COLOR_NAMES]}`).join('   ')}
-      </Text>
+      <GameControls
+        canUndo={session.history.length > 0}
+        canAddTube={!session.extraTubeUsed}
+        tubeCost={cost}
+        coins={coins}
+        disabled={busy || solved || tutorialActive}
+        onUndo={() => { audio.play('button'); clearHint(); useGameStore.getState().undo(); }}
+        onRestart={restart}
+        onAddTube={addTube}
+        onHint={onHint}
+        hintCost={nextHintCost}
+        hinting={hinting}
+      />
+
+      {overlayVisible && !isDaily && completion && solved && (
+        <WinOverlay
+          result={completion}
+          hasNext={!!onNext}
+          onNext={() => onNext?.()}
+          onReplay={() => { setOverlayVisible(false); setWinPlaying(false); useGameStore.getState().restart(); }}
+          onLevels={onExit}
+        />
+      )}
+      {overlayVisible && isDaily && dailyResult && solved && (
+        <DailyWinOverlay
+          result={dailyResult}
+          onReplay={() => { setOverlayVisible(false); setWinPlaying(false); useGameStore.getState().restart(); }}
+          onHome={onExit}
+        />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: theme.bg, paddingTop: 48, paddingHorizontal: 16, paddingBottom: 24 },
-  top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
-  title: { color: theme.text, fontSize: 20, fontWeight: '700', letterSpacing: 2 },
-  moves: { color: theme.textDim, fontSize: 16, minWidth: 80, textAlign: 'right' },
-  board: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', paddingVertical: 24, gap: 4 },
-  tubeHit: { minWidth: 56, minHeight: 48, padding: 8, alignItems: 'center' },
-  tubeLift: { transform: [{ translateY: -12 }] },
-  tube: { width: UNIT + 6, padding: 2, borderWidth: 2, borderColor: theme.glassEdge, borderRadius: 10, backgroundColor: theme.glass },
-  tubeSelected: { borderColor: theme.accent },
-  tubeSealed: { borderColor: theme.textDim, opacity: 0.85 },
-  unit: { width: UNIT, height: UNIT, marginVertical: 1, borderRadius: 4, alignItems: 'center', justifyContent: 'center' },
-  unitText: { color: '#0A1020', fontWeight: '700', fontSize: 13 },
-  row: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginVertical: 8 },
-  button: { minWidth: 88, minHeight: 48, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, borderColor: theme.glassEdge, backgroundColor: theme.panel, alignItems: 'center', justifyContent: 'center' },
-  buttonOff: { opacity: 0.4 },
-  buttonText: { color: theme.text, fontWeight: '600', letterSpacing: 1 },
-  banner: { color: theme.warn, textAlign: 'center', marginVertical: 8 },
-  win: { backgroundColor: theme.panel, borderRadius: 16, padding: 16, marginVertical: 8, alignItems: 'center' },
-  winTitle: { color: theme.accent, fontSize: 18, fontWeight: '700', letterSpacing: 2 },
-  winText: { color: theme.text, marginVertical: 8 },
-  legend: { color: theme.textDim, fontSize: 11, textAlign: 'center' },
+  root: { flex: 1 },
+  board: { flex: 1, marginHorizontal: 8 },
+  banner: { backgroundColor: 'rgba(255,138,31,0.15)', borderColor: '#FF8A1F', borderWidth: 1, borderRadius: 12, marginHorizontal: 16, padding: 10 },
+  bannerText: { color: '#FF8A1F', textAlign: 'center' },
 });

@@ -1,5 +1,6 @@
 import { COLOR_LETTERS } from './levelCodec';
 import { createInitialState } from './session';
+import { hasMechanics, MechSearch } from './mechSolver';
 import type { GameState, Level, Move } from './types';
 
 export interface SolveResult {
@@ -137,78 +138,124 @@ class MinHeap {
   }
 }
 
-interface SearchOutcome {
+export interface SearchOutcome {
   status: 'solved' | 'exhausted' | 'budget';
   solution?: Move[];
   nodes: number;
 }
 
-function search(start: string[], weight: number, maxNodes: number): SearchOutcome {
-  const X = goalRuns(start);
-  const h = (tubes: string[]) => Math.max(0, runCount(tubes) - X);
-  const nodes: Node[] = [{ tubes: start, g: 0, parent: -1, from: -1, to: -1 }];
-  const best = new Map<string, number>([[keyOf(start), 0]]);
-  const open = new MinHeap();
-  open.push(weight * h(start), 0, 0);
+/** How many node expansions pass between checks of `shouldYield`. */
+const YIELD_CHECK_EVERY = 64;
 
-  while (open.size > 0) {
-    const id = open.pop();
-    const node = nodes[id];
-    const key = keyOf(node.tubes);
-    if (best.get(key)! < node.g) continue; // stale entry
-    if (isGoal(node.tubes)) {
-      const solution: Move[] = [];
-      for (let n = id; nodes[n].parent >= 0; n = nodes[n].parent) {
-        solution.push({ from: nodes[n].from, to: nodes[n].to });
-      }
-      return { status: 'solved', solution: solution.reverse(), nodes: nodes.length };
-    }
-    if (nodes.length >= maxNodes) return { status: 'budget', nodes: nodes.length };
+/**
+ * Resumable A* over compact states. `run` expands nodes until the search ends
+ * or `shouldYield()` says to pause; call `run` again to continue. This is what
+ * lets the runtime hint solver work in short slices between frames (§10.4).
+ */
+export class Search {
+  private readonly nodes: Node[];
+  private readonly best: Map<string, number>;
+  private readonly open = new MinHeap();
+  private readonly X: number;
+  private expansions = 0;
 
-    const { tubes } = node;
-    for (let from = 0; from < tubes.length; from++) {
-      const a = tubes[from];
-      if (sizeOf(a) === 0 || isFullUniform(a)) continue; // empty, or sealed
-      const run = topRun(a);
-      const c = topOf(a);
-      const tried = new Set<string>();
-      for (let to = 0; to < tubes.length; to++) {
-        if (to === from) continue;
-        const b = tubes[to];
-        const free = capOf(b) - sizeOf(b);
-        if (free === 0) continue;
-        if (sizeOf(b) > 0 && topOf(b) !== c) continue;
-        if (sizeOf(b) === 0 && run === sizeOf(a)) continue;  // pointless relabel
-        if (tried.has(b)) continue;                          // identical destination already tried
-        tried.add(b);
-        const amount = Math.min(run, free);
-        const next = tubes.slice();
-        next[from] = a.slice(0, a.length - amount);
-        next[to] = b + c.repeat(amount);
-        const g = node.g + 1;
-        const nk = keyOf(next);
-        const seen = best.get(nk);
-        if (seen !== undefined && seen <= g) continue;       // also prunes immediate reversals
-        best.set(nk, g);
-        nodes.push({ tubes: next, g, parent: id, from, to });
-        open.push(g + weight * h(next), g, nodes.length - 1);
-      }
-    }
+  constructor(start: string[], private readonly weight: number, private readonly maxNodes: number) {
+    this.X = goalRuns(start);
+    this.nodes = [{ tubes: start, g: 0, parent: -1, from: -1, to: -1 }];
+    this.best = new Map([[keyOf(start), 0]]);
+    this.open.push(weight * this.h(start), 0, 0);
   }
-  return { status: 'exhausted', nodes: nodes.length };
+
+  get nodeCount(): number { return this.nodes.length; }
+
+  private h(tubes: string[]): number { return Math.max(0, runCount(tubes) - this.X); }
+
+  /** Returns the outcome, or null if paused by `shouldYield`. */
+  run(shouldYield?: () => boolean): SearchOutcome | null {
+    const { nodes, best, open, weight } = this;
+    while (open.size > 0) {
+      if (shouldYield && this.expansions % YIELD_CHECK_EVERY === 0 && this.expansions > 0 && shouldYield()) {
+        this.expansions++; // so a resumed run does not immediately re-check at the same count
+        return null;
+      }
+      this.expansions++;
+      const id = open.pop();
+      const node = nodes[id];
+      const key = keyOf(node.tubes);
+      if (best.get(key)! < node.g) continue; // stale entry
+      if (isGoal(node.tubes)) {
+        const solution: Move[] = [];
+        for (let n = id; nodes[n].parent >= 0; n = nodes[n].parent) {
+          solution.push({ from: nodes[n].from, to: nodes[n].to });
+        }
+        return { status: 'solved', solution: solution.reverse(), nodes: nodes.length };
+      }
+      if (nodes.length >= this.maxNodes) return { status: 'budget', nodes: nodes.length };
+
+      const { tubes } = node;
+      for (let from = 0; from < tubes.length; from++) {
+        const a = tubes[from];
+        if (sizeOf(a) === 0 || isFullUniform(a)) continue; // empty, or sealed
+        const run = topRun(a);
+        const c = topOf(a);
+        const tried = new Set<string>();
+        for (let to = 0; to < tubes.length; to++) {
+          if (to === from) continue;
+          const b = tubes[to];
+          const free = capOf(b) - sizeOf(b);
+          if (free === 0) continue;
+          if (sizeOf(b) > 0 && topOf(b) !== c) continue;
+          if (sizeOf(b) === 0 && run === sizeOf(a)) continue;  // pointless relabel
+          if (tried.has(b)) continue;                          // identical destination already tried
+          tried.add(b);
+          const amount = Math.min(run, free);
+          const next = tubes.slice();
+          next[from] = a.slice(0, a.length - amount);
+          next[to] = b + c.repeat(amount);
+          const g = node.g + 1;
+          const nk = keyOf(next);
+          const seen = best.get(nk);
+          if (seen !== undefined && seen <= g) continue;       // also prunes immediate reversals
+          best.set(nk, g);
+          nodes.push({ tubes: next, g, parent: id, from, to });
+          open.push(g + weight * this.h(next), g, nodes.length - 1);
+        }
+      }
+    }
+    return { status: 'exhausted', nodes: nodes.length };
+  }
+}
+
+/** Compact encoding of a runtime state for `Search` (throws for mechanics the solver cannot model yet). */
+export const encodeState = (state: GameState): string[] => encode(state);
+
+/** Anything that can be run in slices: the classic string search or the mechanics search. */
+export interface Searcher { run(shouldYield?: () => boolean): SearchOutcome | null }
+
+/**
+ * Pick the right search for a position. Levels with section 11 mechanics need the
+ * level (for conditions and catalysts); the classic fast search is used otherwise.
+ * Returns null if the position cannot be modelled (mechanics but no level).
+ */
+export function createSearch(state: GameState, weight: number, maxNodes: number, level?: Level): Searcher | null {
+  const mech = state.tubes.some((t) => t.locked || t.catalystSpent || t.liquids.some((l) => l.frozen || l.hidden));
+  if (level && (hasMechanics(level) || mech)) return new MechSearch(level, state, weight, maxNodes);
+  if (mech) return null;
+  return new Search(encode(state), weight, maxNodes);
 }
 
 /** Solve a runtime state. Exact optimum if the budget allows, otherwise best effort. */
-export function solveState(state: GameState, options: SolveOptions = {}): SolveResult {
+export function solveState(state: GameState, options: SolveOptions = {}, level?: Level): SolveResult {
   const o = { ...DEFAULT_SOLVE_OPTIONS, ...options };
-  const start = encode(state);
-  const exact = search(start, 1, o.maxNodes);
+  const exactSearch = createSearch(state, 1, o.maxNodes, level);
+  if (!exactSearch) throw new Error('Position has mechanics but no level was supplied to the solver');
+  const exact = exactSearch.run()!;
   if (exact.status === 'solved') {
     return { solvable: true, solution: exact.solution, optimal: exact.solution!.length, exact: true, nodes: exact.nodes };
   }
   if (exact.status === 'exhausted') return { solvable: false, exact: true, nodes: exact.nodes };
 
-  const approx = search(start, o.fallbackWeight, o.fallbackNodes);
+  const approx = createSearch(state, o.fallbackWeight, o.fallbackNodes, level)!.run()!;
   const nodes = exact.nodes + approx.nodes;
   if (approx.status === 'solved') {
     return { solvable: true, solution: approx.solution, optimal: approx.solution!.length, exact: false, nodes };
@@ -217,5 +264,5 @@ export function solveState(state: GameState, options: SolveOptions = {}): SolveR
 }
 
 export function solveLevel(level: Level, options?: SolveOptions): SolveResult {
-  return solveState(createInitialState(level), options);
+  return solveState(createInitialState(level), options, level);
 }

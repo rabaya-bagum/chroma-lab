@@ -39,17 +39,17 @@ export function LabBackground() {
   const paths = useMemo(() => tubePaths(tubeW, tubeH), [tubeW, tubeH]);
 
   const particles = useDerivedValue(() => {
-    const p = Skia.Path.Make();
+    const p = Skia.PathBuilder.Make();
     for (let i = 0; i < PARTICLES; i++) {
       const speed = 6 + rnd(i, 1) * 10;
       const y = ((rnd(i, 2) * h - t.value * speed) % h + h) % h;
       const x = rnd(i, 3) * w + Math.sin(t.value * 0.4 + i) * 12;
       p.addCircle(x, y, 1 + rnd(i, 4) * 1.8);
     }
-    return p;
+    return p.build();
   });
   const bubbles = useDerivedValue(() => {
-    const p = Skia.Path.Make();
+    const p = Skia.PathBuilder.Make();
     DECOR.forEach((d, i) => {
       for (let k = 0; k < 2; k++) {
         const cycle = (t.value * 0.18 + rnd(i, k + 7)) % 1;
@@ -58,7 +58,7 @@ export function LabBackground() {
         p.addCircle(tubeW / 2 + Math.sin(cycle * 6 + k) * tubeW * 0.15, y, 1.6 + k);
       }
     });
-    return p;
+    return p.build();
   });
 
   return (

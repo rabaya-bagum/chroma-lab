@@ -27,7 +27,7 @@ export function patternPath(kind: PatternKind, w: number, h: number): SkPath {
   const key = `${kind}:${Math.round(w * 10)}x${Math.round(h * 10)}`;
   const hit = cache.get(key);
   if (hit) return hit;
-  const p = Skia.Path.Make();
+  const p = Skia.PathBuilder.Make();
   switch (kind) {
     case 'circles': {
       const r = h * 0.17;
@@ -75,6 +75,7 @@ export function patternPath(kind: PatternKind, w: number, h: number): SkPath {
       break;
     }
   }
-  cache.set(key, p);
-  return p;
+  const built = p.build();
+  cache.set(key, built);
+  return built;
 }

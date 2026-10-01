@@ -7,14 +7,14 @@ import { KIND_BUBBLE, KIND_SPARK, liveOfKind } from './particles';
 /** Draws the pooled particles: bubbles as rings, sparks as filled dots. */
 export const Particles = React.memo(function Particles({ state }: { state: SharedValue<number[]> }) {
   const bubbles = useDerivedValue(() => {
-    const p = Skia.Path.Make();
+    const p = Skia.PathBuilder.Make();
     for (const b of liveOfKind(state.value, KIND_BUBBLE)) p.addCircle(b.x, b.y, b.r);
-    return p;
+    return p.build();
   });
   const sparks = useDerivedValue(() => {
-    const p = Skia.Path.Make();
+    const p = Skia.PathBuilder.Make();
     for (const s of liveOfKind(state.value, KIND_SPARK)) p.addCircle(s.x, s.y, s.r);
-    return p;
+    return p.build();
   });
   return (
     <>

@@ -16,31 +16,31 @@ export const Stream = React.memo(function Stream({ anim, reduceMotion, effect = 
   });
   const path = useDerivedValue(() => {
     const g = geo.value;
-    const p = Skia.Path.Make();
-    if (!g || !g.visible) return p;
+    const p = Skia.PathBuilder.Make();
+    if (!g || !g.visible) return p.build();
     const wob = Math.sin(anim.phase.value * 14) * 1.4;
     p.moveTo(g.x0, g.y0);
     p.cubicTo(g.x0 + (g.x1 - g.x0) * 0.1 + wob, g.y0 + (g.y1 - g.y0) * 0.35,
       g.x1 - wob, g.y0 + (g.y1 - g.y0) * 0.7, g.x1, g.y1);
-    return p;
+    return p.build();
   });
   // sparkle: glints riding down the stream
   const glints = useDerivedValue(() => {
     const g = geo.value;
-    const p = Skia.Path.Make();
-    if (!g || !g.visible || effect !== 'sparkle') return p;
+    const p = Skia.PathBuilder.Make();
+    if (!g || !g.visible || effect !== 'sparkle') return p.build();
     for (let i = 0; i < 7; i++) {
       const t = (anim.phase.value * 1.6 + i / 7) % 1;
       const x = g.x0 + (g.x1 - g.x0) * t + Math.sin(i * 3 + anim.phase.value * 9) * g.width * 0.9;
       p.addCircle(x, g.y0 + (g.y1 - g.y0) * t, 1.2 + (i % 3) * 0.6);
     }
-    return p;
+    return p.build();
   });
   // plasma: a jagged arc around the stream core
   const arc = useDerivedValue(() => {
     const g = geo.value;
-    const p = Skia.Path.Make();
-    if (!g || !g.visible || effect !== 'plasma') return p;
+    const p = Skia.PathBuilder.Make();
+    if (!g || !g.visible || effect !== 'plasma') return p.build();
     const n = 9;
     p.moveTo(g.x0, g.y0);
     for (let i = 1; i <= n; i++) {
@@ -48,7 +48,7 @@ export const Stream = React.memo(function Stream({ anim, reduceMotion, effect = 
       const jitter = i === n ? 0 : Math.sin(anim.phase.value * 31 + i * 5.1) * g.width * 1.3;
       p.lineTo(g.x0 + (g.x1 - g.x0) * t + jitter, g.y0 + (g.y1 - g.y0) * t);
     }
-    return p;
+    return p.build();
   });
   const color = useDerivedValue(() => anim.plan.value?.hex ?? '#FFFFFF');
   const opacity = useDerivedValue(() => geo.value?.alpha ?? 0);

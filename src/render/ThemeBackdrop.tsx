@@ -7,7 +7,7 @@ const rnd = (i: number, k: number) => { const x = Math.sin(i * 127.1 + k * 311.7
 /** Themed background drawn inside a Skia canvas: gradient, glow and the theme's decoration. */
 export function ThemeBackdrop({ theme, width, height, solid = false }: { theme: LabTheme; width: number; height: number; solid?: boolean }) {
   const decor = useMemo(() => {
-    const p = Skia.Path.Make();
+    const p = Skia.PathBuilder.Make();
     if (theme.decor === 'stars') {
       for (let i = 0; i < 46; i++) p.addCircle(rnd(i, 1) * width, rnd(i, 2) * height, 0.5 + rnd(i, 3) * 1.4);
     } else if (theme.decor === 'grid') {
@@ -15,7 +15,7 @@ export function ThemeBackdrop({ theme, width, height, solid = false }: { theme: 
       for (let x = 0; x <= width; x += step) { p.moveTo(x, 0); p.lineTo(x, height); }
       for (let y = 0; y <= height; y += step) { p.moveTo(0, y); p.lineTo(width, y); }
     }
-    return p;
+    return p.build();
   }, [theme.decor, width, height]);
 
   return (

@@ -248,6 +248,31 @@ describe('deadlock with mechanics', () => {
     const l = mk(['RB', 'BR', { liquids: 'G', lock: { unlockWhen: { type: 'movesMade', count: 9 } } }]);
     expect(isDeadlocked(createInitialState(l))).toBe(true);
   });
+  it('a relabel into an unspent catalyst tube is progress, not a deadlock', () => {
+    const l = mk([
+      'G',
+      { liquids: '', catalyst: { triggerColor: 'green', effect: { type: 'unlockTube', tubeId: 'T3' } } },
+      { liquids: 'GGG', lock: { unlockWhen: { type: 'tubesCompleted', count: 9 } } },
+    ]);
+    const s = createInitialState(l);
+    expect(isDeadlocked(s)).toBe(true); // without the level the move looks like a relabel
+    expect(isDeadlocked(s, l)).toBe(false);
+  });
+  it('a relabel into a catalyst tube with a different trigger colour is still pointless', () => {
+    const l = mk([
+      'G',
+      { liquids: '', catalyst: { triggerColor: 'red', effect: { type: 'unlockTube', tubeId: 'T3' } } },
+      { liquids: 'GGG', lock: { unlockWhen: { type: 'tubesCompleted', count: 9 } } },
+    ]);
+    expect(isDeadlocked(createInitialState(l), l)).toBe(true);
+  });
+  it('any move is progress while a movesMade condition is pending', () => {
+    const l = mk(['G', '', { liquids: 'GGG', lock: { unlockWhen: { type: 'movesMade', count: 1 } } }]);
+    const s = createInitialState(l);
+    expect(isDeadlocked(s, l)).toBe(false);
+    const after = move(l, s, 0, 1).state; // the pour unlocks T3
+    expect(after.tubes[2].locked).toBe(false);
+  });
 });
 
 describe('reactor', () => {

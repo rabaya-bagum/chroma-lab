@@ -5,7 +5,7 @@ import {
   Canvas, Circle, Group, LinearGradient, matchFont, Path, Rect, Skia, vec,
 } from '@shopify/react-native-skia';
 import {
-  Easing, useDerivedValue, useFrameCallback, useSharedValue, withSequence, withTiming,
+  cancelAnimation, Easing, useDerivedValue, useFrameCallback, useSharedValue, withSequence, withTiming,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { COLOR_NAMES, LIQUID_HEX, LIQUID_HEX_COLORBLIND } from '../config/theme';
@@ -13,7 +13,7 @@ import { describeEvents } from '../game/accessibility';
 import { describeProgress } from '../game/conditions';
 import { isMixPour, mixResult } from '../game/mixing';
 import type { GameEvent, GameState, Level, LiquidColor } from '../game/types';
-import { Particles } from '../render/Particles';
+import { Particles } from '../render/ParticleLayer';
 import { Stream } from '../render/Stream';
 import { ThemeBackdrop } from '../render/ThemeBackdrop';
 import { useCosmetics } from '../render/useCosmetics';
@@ -102,6 +102,8 @@ export function GameBoard(props: Props) {
   useLayoutEffect(() => { shownRef.current = shown; }, [shown]);
   const [activeSrc, setActiveSrc] = useState(-1);
   const busy = useRef(false);
+  /** Bumped by every play and snap; a finish from an older play is ignored. */
+  const playGen = useRef(0);
   const [nonces, setNonces] = useState({ flourish: [] as number[], wobble: [] as number[] });
   const [fxDelay, setFxDelay] = useState<number[]>([]);
 
@@ -233,7 +235,8 @@ export function GameBoard(props: Props) {
     kinds.forEach((k) => props.onMechanic?.(k));
   }, [burst, catGeom, catT, props, reduce]);
 
-  const finish = useCallback((target: GameState, evts: GameEvent[], pourTo: number, pourFrom: number) => {
+  const finish = useCallback((target: GameState, evts: GameEvent[], pourTo: number, pourFrom: number, gen: number) => {
+    if (gen !== playGen.current) return; // superseded by a snap or a newer play
     playMechanics(target, evts);
     setShown(target);
     setActiveSrc(-1);
@@ -259,12 +262,13 @@ export function GameBoard(props: Props) {
 
   const play = useCallback((pl: Plan, target: GameState, evts: GameEvent[]) => {
     setBusy(true);
+    const gen = ++playGen.current;
     if (pl.kind === 'pour') setActiveSrc(pl.from);
     plan.value = pl;
     clock.value = 0;
     clock.value = withTiming(pl.total, { duration: pl.total, easing: Easing.linear }, (fin) => {
       'worklet';
-      if (fin) scheduleOnRN(finish, target, evts, pl.kind === 'pour' ? pl.to : -1, pl.from);
+      if (fin) scheduleOnRN(finish, target, evts, pl.kind === 'pour' ? pl.to : -1, pl.from, gen);
     });
     if (pl.kind === 'pour' && !reduce) {
       const l = layoutRef.current, dst = l.positions[pl.to];
@@ -282,6 +286,8 @@ export function GameBoard(props: Props) {
     const sameShape = S.levelId === current.levelId && S.tubes.length === current.tubes.length;
 
     if (busy.current) { // a restart or new level arrived mid-animation: snap
+      playGen.current++; // a finish already on its way for the old play is dropped
+      cancelAnimation(clock); // cancellation is asynchronous, hence the generation check in finish
       plan.value = null;
       setBusy(false);
       setActiveSrc(-1);

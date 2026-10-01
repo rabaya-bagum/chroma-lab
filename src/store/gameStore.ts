@@ -92,7 +92,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
 /** Derived values, kept out of the store so selectors stay cheap and granular. */
 export const selectSolved = (s: GameStore) => !!s.session && isPuzzleSolved(s.session.current);
-export const selectDeadlocked = (s: GameStore) => !!s.session && isDeadlocked(s.session.current);
+export const selectDeadlocked = (s: GameStore) => !!s.session && isDeadlocked(s.session.current, s.session.level);
 export const selectStars = (s: GameStore) =>
   s.session && isPuzzleSolved(s.session.current)
     ? calculateStars(s.session.current.moves, s.session.level, s.session)

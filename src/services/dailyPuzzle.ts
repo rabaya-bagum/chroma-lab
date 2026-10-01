@@ -63,19 +63,43 @@ const defaultFrame = () =>
 
 /** The saved daily level for `dateKey`, if there is one (no generation). */
 export async function loadCachedDaily(kv: KeyValueStore, dateKey: string): Promise<Level | null> {
+  for (const entry of await readCacheEntries(kv)) {
+    const level = fromCache(entry, dateKey);
+    if (level) return level;
+  }
+  return null;
+}
+
+/**
+ * How many recent dates the cache keeps. More than one, so an unfinished daily
+ * from an earlier day can still be resumed after today's puzzle was cached.
+ */
+export const DAILY_CACHE_DATES = 3;
+
+/** Stored entries, newest first. Accepts the older single-entry format. */
+async function readCacheEntries(kv: KeyValueStore): Promise<unknown[]> {
   try {
     const raw = await kv.getItem(DAILY_CACHE_KEY);
-    return raw ? fromCache(JSON.parse(raw), dateKey) : null;
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [parsed];
   } catch {
-    return null;
+    return [];
   }
+}
+
+async function writeCacheEntry(kv: KeyValueStore, entry: CacheEntry): Promise<void> {
+  const others = (await readCacheEntries(kv)).filter(
+    (e) => typeof e === 'object' && e !== null && (e as Partial<CacheEntry>).dateKey !== entry.dateKey,
+  );
+  await kv.setItem(DAILY_CACHE_KEY, JSON.stringify([entry, ...others].slice(0, DAILY_CACHE_DATES)));
 }
 
 /**
  * Today's puzzle: the cached copy if there is one, otherwise generated on the
  * device in slices of at most 8 ms with a frame between them (so the screen's
  * "Synthesising" state stays animated), otherwise taken from the shipped pool.
- * The result is cached per date (§12.4).
+ * The result is cached per date, keeping the last few dates (§12.4).
  */
 export async function loadDailyLevel(dateKey: string, deps: DailyDeps): Promise<DailyLoad> {
   const cached = await loadCachedDaily(deps.kv, dateKey);
@@ -97,6 +121,6 @@ export async function loadDailyLevel(dateKey: string, deps: DailyDeps): Promise<
 
   const source: DailySource = level ? 'generated' : 'pool';
   const result = level ?? levelFromPool(DAILY_POOL, dateKey);
-  try { await deps.kv.setItem(DAILY_CACHE_KEY, JSON.stringify(toCache(dateKey, result))); } catch { /* cache is optional */ }
+  try { await writeCacheEntry(deps.kv, toCache(dateKey, result)); } catch { /* cache is optional */ }
   return { level: result, source };
 }

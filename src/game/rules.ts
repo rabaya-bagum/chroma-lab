@@ -1,5 +1,5 @@
 import { isMixPour, mixResult } from './mixing';
-import type { GameState, LiquidLayer, Move, MoveError, TubeState } from './types';
+import type { Condition, GameState, Level, LiquidLayer, Move, MoveError, TubeState } from './types';
 
 function tubeAt(state: GameState, index: number): TubeState {
   const tube = state.tubes[index];
@@ -65,15 +65,38 @@ export function getPourAmount(state: GameState, from: number, to: number): numbe
   return Math.min(topRunLength(a), b.capacity - b.liquids.length);
 }
 
+const isMovesCondition = (c: Condition | undefined): boolean => c?.type === 'movesMade';
+
+/**
+ * True when merely making a move (any move) can still change the board: a locked
+ * tube or a frozen tube is waiting on a "movesMade" condition.
+ */
+function moveCountMatters(state: GameState, level: Level): boolean {
+  return state.tubes.some((t) => {
+    const def = level.tubes.find((d) => d.id === t.id);
+    if (!def) return false;
+    if (t.locked && isMovesCondition(def.lock?.unlockWhen)) return true;
+    return isMovesCondition(def.thawWhen) && t.liquids.some((l) => l.frozen);
+  });
+}
+
 /**
  * A valid move that only relabels a tube: the source's whole content goes into an
  * empty tube. It never changes the puzzle, so the solver and deadlock check skip it.
+ * With `level`, a relabel that can trigger a rule is not pointless: pouring into an
+ * unspent catalyst tube with its trigger colour, or any move while a "movesMade" condition is pending.
  */
-export function isPointlessMove(state: GameState, from: number, to: number): boolean {
+export function isPointlessMove(state: GameState, from: number, to: number, level?: Level): boolean {
   const a = state.tubes[from];
   const b = state.tubes[to];
   if (isMixPour(state, from, to)) return false;
-  return b.liquids.length === 0 && topRunLength(a) === a.liquids.length;
+  if (!(b.liquids.length === 0 && topRunLength(a) === a.liquids.length)) return false;
+  if (level) {
+    const color = a.liquids[a.liquids.length - 1].color;
+    if (!b.catalystSpent && level.tubes.some((d) => d.id === b.id && d.catalyst?.triggerColor === color)) return false;
+    if (moveCountMatters(state, level)) return false;
+  }
+  return true;
 }
 
 export function getValidMoves(state: GameState): Move[] {
@@ -94,15 +117,15 @@ export function isPuzzleSolved(state: GameState): boolean {
 }
 
 /** Moves that actually change the puzzle (valid and not merely relabelling a tube). */
-export function getMeaningfulMoves(state: GameState): Move[] {
-  return getValidMoves(state).filter((m) => !isPointlessMove(state, m.from, m.to));
+export function getMeaningfulMoves(state: GameState, level?: Level): Move[] {
+  return getValidMoves(state).filter((m) => !isPointlessMove(state, m.from, m.to, level));
 }
 
 /**
  * No move can make progress and the puzzle is not solved (§5.6). Pointless
  * relabelling moves do not count, otherwise a stuck board with a spare empty
- * tube would never be reported.
+ * tube would never be reported. Pass `level` so relabels that trigger a rule count.
  */
-export function isDeadlocked(state: GameState): boolean {
-  return !isPuzzleSolved(state) && getMeaningfulMoves(state).length === 0;
+export function isDeadlocked(state: GameState, level?: Level): boolean {
+  return !isPuzzleSolved(state) && getMeaningfulMoves(state, level).length === 0;
 }

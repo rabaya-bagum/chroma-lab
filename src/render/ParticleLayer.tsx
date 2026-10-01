@@ -2,18 +2,18 @@ import React from 'react';
 import { Path, Skia } from '@shopify/react-native-skia';
 import { useDerivedValue } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
-import { KIND_BUBBLE, KIND_SPARK, liveOfKind } from './particles';
+import { addCirclesOfKind, KIND_BUBBLE, KIND_SPARK } from './particles';
 
 /** Draws the pooled particles: bubbles as rings, sparks as filled dots. */
 export const Particles = React.memo(function Particles({ state }: { state: SharedValue<number[]> }) {
   const bubbles = useDerivedValue(() => {
     const p = Skia.PathBuilder.Make();
-    for (const b of liveOfKind(state.value, KIND_BUBBLE)) p.addCircle(b.x, b.y, b.r);
+    addCirclesOfKind(state.value, KIND_BUBBLE, p);
     return p.build();
   });
   const sparks = useDerivedValue(() => {
     const p = Skia.PathBuilder.Make();
-    for (const s of liveOfKind(state.value, KIND_SPARK)) p.addCircle(s.x, s.y, s.r);
+    addCirclesOfKind(state.value, KIND_SPARK, p);
     return p.build();
   });
   return (

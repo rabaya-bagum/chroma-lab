@@ -62,3 +62,25 @@ export function liveOfKind(a: number[], kind: number): { x: number; y: number; r
   }
   return out;
 }
+
+/** Anything with Skia's `addCircle`, so the pass below can fill a path builder directly. */
+export interface CircleSink { addCircle(x: number, y: number, r: number): unknown }
+
+/**
+ * Same circles as `liveOfKind`, written straight into a path builder: no
+ * per-frame arrays or objects, which matters on a worklet that runs every frame.
+ * Returns how many circles were added.
+ */
+export function addCirclesOfKind(a: number[], kind: number, sink: CircleSink): number {
+  'worklet';
+  let n = 0;
+  for (let i = 0; i < MAX_PARTICLES; i++) {
+    const o = 1 + i * STRIDE;
+    if (a[o + 4] > 0 && a[o + 7] === kind) {
+      const r = kind === KIND_SPARK ? a[o + 6] * (0.4 + 0.6 * (a[o + 4] / a[o + 5])) : a[o + 6];
+      sink.addCircle(a[o], a[o + 1], r);
+      n++;
+    }
+  }
+  return n;
+}

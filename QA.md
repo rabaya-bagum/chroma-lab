@@ -89,3 +89,9 @@ For frame rate, audio, splash, persistence and other hardware-only checks see `d
 - [ ] After completing a level, replaying it shows only the `RULES (n)` button. Classic levels show no button.
 - [ ] Levels 1 and 56 do not open the card (their tutorials explain the rules).
 - [ ] Screen reader: the button announces expanded/collapsed and the card reads all rules.
+
+## Performance (Phase 10)
+
+- [ ] With the `preview` build, the overlay shows fps, worst frame and FULL/LITE on the board and does not block taps.
+- [ ] On a healthy phone the tier stays FULL; on a deliberately slow one it drops to LITE after a couple of seconds and play is unaffected (ambient bubbles stop, shimmer is calmer, pours look the same).
+- [ ] Pours on a 9-tube board feel smoother than before, with the overlay as evidence.

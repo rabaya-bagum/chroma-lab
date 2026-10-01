@@ -36,3 +36,15 @@
 - [ ] Corrupt save: set the stored value to garbage (or install over an incompatible build), relaunch: a SAVE RESET toast appears and the game starts fresh; the old value is kept under `chroma.save.corrupt.<time>`.
 - [ ] Reduce Motion: splash fill, Home background and win overlay do not animate; screen reader reads Home, Level Select, cards ("Level 4, medium, 2 of 3 stars" / "Level 7, locked"), toasts and the overlay.
 - [ ] Hardware back on Android from the game screen returns to the previous screen and ends the visit.
+
+## Phase 4
+- [ ] Hint: tap HINT on a mid-game board. A ring appears on the source tube, then the destination, with "Try moving <COLOUR> here." Nothing moves by itself. Pour animations stay smooth while the hint is computed (no dropped frames; the button shows "..." briefly).
+- [ ] Hint on an unsolvable board (dead end): toast says "This mixture is unstable - try Undo." and no coins are charged.
+- [ ] Hint pricing: free on levels 1-10; from level 11 the first hint is free, later ones show 50 and the button is disabled when coins are short. Hints never change the star preview.
+- [ ] Daily Experiment: first open shows SYNTHESISING briefly, then difficulty, streak, today's state. Two devices (same app build, same local date) show the identical board. After finishing, the screen shows COMPLETE with best moves and time and PLAY AGAIN; replaying pays no coins and keeps the streak.
+- [ ] Daily streak: finish on consecutive days (change the device date to test) and the streak rises with the bonus (10 per day, max 70); skip a day and it resets to 1. Day 7 unlocks the Weekly Research achievement.
+- [ ] Daily offline fallback: with generation disabled or failing, a pool puzzle is used and the same puzzle persists across relaunches that day.
+- [ ] Collection: tabs show three items each; tapping any item (even locked) shows a live preview of the pour; UNLOCK is disabled when coins are short; buying equips; Crystal unlocks at 25 stars, Cyber Lab at 40, Plasma after 5 daily completions.
+- [ ] Cosmetics apply on the game board, Home background and Laboratory, and persist across relaunch.
+- [ ] Laboratory: Microscope appears at 10 stars, Centrifuge at 25, Research Computer at 45, Robotic Arm at 65; unlocked pieces animate in and idle; locked ones are silhouettes with thresholds; the three future pieces say "Future chapters"; Reduce Motion keeps everything still.
+- [ ] A completion that unlocks something shows a toast (new collection item or laboratory upgrade) after the results appear.

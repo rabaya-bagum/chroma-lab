@@ -1,3 +1,5 @@
+import { earnedEquipment } from '../data/labEquipment';
+import { grantEarned } from './cosmetics';
 import type { Level } from './types';
 
 export interface LevelRecord { stars: 0 | 1 | 2 | 3; bestMoves?: number; completions: number }
@@ -75,14 +77,16 @@ export function recomputeDerived<T extends GameSave>(save: T, levels: readonly L
     highestDone = Math.max(highestDone, level.number);
   }
   const dailyCount = Object.keys(save.daily.history).length;
-  return {
+  const derived = {
     ...save,
     progress: {
       ...save.progress,
+      labUnlocked: earnedEquipment(starsTotal),
       starsTotal,
       researchXp: starsTotal * XP_PER_STAR + dailyCount * XP_PER_DAILY,
       highestUnlocked: Math.min(Math.max(1, highestDone + 1), Math.max(1, levels.length)),
       stats: { ...save.progress.stats, levelsCompleted: completed },
     },
   };
+  return grantEarned(derived) as T; // grantEarned spreads the save, so any extra fields (settings) survive
 }

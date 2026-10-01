@@ -12,11 +12,13 @@ interface Props {
   primary?: boolean;
   /** Overrides the spoken label (defaults to `label`). */
   accessibilityLabel?: string;
+  /** Fixed wider button (used for the Home menu grid). */
+  wide?: boolean;
   /** Small line under the label, for example a coin price. */
   caption?: string;
 }
 
-export function GlowButton({ label, onPress, icon, disabled, primary, accessibilityLabel, caption }: Props) {
+export function GlowButton({ label, onPress, icon, disabled, primary, accessibilityLabel, caption, wide }: Props) {
   return (
     <Pressable
       onPress={onPress}
@@ -24,7 +26,7 @@ export function GlowButton({ label, onPress, icon, disabled, primary, accessibil
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ disabled: !!disabled }}
-      style={({ pressed }) => [styles.btn, primary && styles.primary, pressed && styles.pressed, disabled && styles.off]}
+      style={({ pressed }) => [styles.btn, wide && styles.wide, primary && styles.primary, pressed && styles.pressed, disabled && styles.off]}
     >
       <View style={styles.inner}>
         {icon && <Icon name={icon} size={22} color={disabled ? theme.textDim : primary ? theme.accent : theme.text} />}
@@ -41,6 +43,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: theme.glassEdge, backgroundColor: 'rgba(18,27,51,0.85)',
     alignItems: 'center', justifyContent: 'center',
   },
+  wide: { width: 150 },
   primary: { borderColor: theme.accent, shadowColor: theme.accent, shadowOpacity: 0.6, shadowRadius: 10, shadowOffset: { width: 0, height: 0 }, elevation: 6 },
   pressed: { opacity: 0.75 },
   off: { opacity: 0.38 },

@@ -13,6 +13,8 @@ import type { Rng } from '../utils/seededRandom';
 export const GENERATOR_VERSION = 'g1';
 
 export interface LevelSpec {
+  /** Overrides the default `L###` id (the daily puzzle uses `daily-<date>`). */
+  id?: string;
   number: number;
   chapter: number;
   difficulty: Difficulty;
@@ -83,16 +85,26 @@ export interface GenerateResult {
 }
 
 /**
- * Deterministically generate a level for `spec` from `seed` (§10.3).
- * Returns null if no deal within `maxAttempts` fits the spec.
+ * One deterministic stream of candidate deals for a spec and seed. `tryNext`
+ * makes a single attempt, so callers can interleave generation with other work
+ * (the Daily Experiment generates on-device in short slices). The outcome
+ * depends only on the seed and attempt count, never on timing.
  */
-export function generateLevel(spec: LevelSpec, seed: string, opts: GenerateOptions = {}): GenerateResult | null {
-  const rng = createRng(`${GENERATOR_VERSION}:${seed}`);
-  const maxAttempts = opts.maxAttempts ?? 50_000;
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+export class LevelGenerator {
+  private readonly rng: Rng;
+  attempts = 0;
+
+  constructor(private readonly spec: LevelSpec, private readonly seed: string, private readonly opts: GenerateOptions = {}) {
+    this.rng = createRng(`${GENERATOR_VERSION}:${seed}`);
+  }
+
+  /** One attempt. Returns an accepted level, or null to try again. */
+  tryNext(): GenerateResult | null {
+    const { spec, seed, opts, rng } = this;
+    this.attempts++;
     const tubes = dealTubes(rng, spec.colors, spec.empties);
     const draft = defineLevel({
-      id: `L${String(spec.number).padStart(3, '0')}`,
+      id: spec.id ?? `L${String(spec.number).padStart(3, '0')}`,
       number: spec.number,
       chapter: spec.chapter,
       difficulty: spec.difficulty,
@@ -102,19 +114,32 @@ export function generateLevel(spec: LevelSpec, seed: string, opts: GenerateOptio
       meta: { generatorVersion: GENERATOR_VERSION, seed },
     });
     const solved = solveLevel(draft, opts.solve);
-    if (solved.solvable !== true || solved.optimal === undefined) continue;
+    if (solved.solvable !== true || solved.optimal === undefined) return null;
     const optimal = solved.optimal;
-    if (optimal < spec.optMin || optimal > spec.optMax) continue;
+    if (optimal < spec.optMin || optimal > spec.optMax) return null;
 
     const branching = getMeaningfulMoves(createInitialState(draft)).length;
-    if (branching < 3) continue; // too trivial
+    if (branching < 3) return null; // too trivial
     const key = levelCanonicalKey(draft);
-    if (opts.seen?.has(key)) continue;
+    if (opts.seen?.has(key)) return null;
 
     const level: Level = { ...draft, optimalMoves: optimal, optimalIsExact: solved.exact };
     const metrics: LevelMetrics = { optimal, branching, deadEndRate: deadEndRate(level, rng) };
     opts.seen?.add(key);
-    return { level, metrics, attempts: attempt };
+    return { level, metrics, attempts: this.attempts };
+  }
+}
+
+/**
+ * Deterministically generate a level for `spec` from `seed` (§10.3).
+ * Returns null if no deal within `maxAttempts` fits the spec.
+ */
+export function generateLevel(spec: LevelSpec, seed: string, opts: GenerateOptions = {}): GenerateResult | null {
+  const gen = new LevelGenerator(spec, seed, opts);
+  const maxAttempts = opts.maxAttempts ?? 50_000;
+  while (gen.attempts < maxAttempts) {
+    const r = gen.tryNext();
+    if (r) return r;
   }
   return null;
 }

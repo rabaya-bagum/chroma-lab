@@ -1,11 +1,13 @@
 import React, { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import type { LayoutChangeEvent } from 'react-native';
-import { BlurMask, Canvas, Group, LinearGradient, Path, RadialGradient, Rect, RoundedRect, Skia, vec } from '@shopify/react-native-skia';
+import { BlurMask, Canvas, Group, LinearGradient, Path, Rect, RoundedRect, Skia, vec } from '@shopify/react-native-skia';
 import { useDerivedValue, useFrameCallback, useSharedValue } from 'react-native-reanimated';
 import { LIQUID_HEX } from '../config/theme';
 import { TUBE_PAD, tubePaths } from './glassPaint';
 import { useReduceMotion } from '../store/settingsStore';
+import { ThemeBackdrop } from './ThemeBackdrop';
+import { useCosmetics } from './useCosmetics';
 
 const PARTICLES = 22;
 const DECOR = [
@@ -24,15 +26,16 @@ const rnd = (i: number, k: number) => { const x = Math.sin(i * 127.1 + k * 311.7
  */
 export function LabBackground() {
   const reduce = useReduceMotion();
+  const { theme, skin } = useCosmetics();
   const [size, setSize] = useState({ w: 0, h: 0 });
   const onLayout = (e: LayoutChangeEvent) => setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height });
   const t = useSharedValue(0);
   useFrameCallback((info) => { if (!reduce) t.value += Math.min(0.05, (info.timeSincePreviousFrame ?? 16) / 1000); });
 
   const { w, h } = size;
-  const benchY = h * 0.8;
+  const benchY = h * 0.88;
   const tubeW = Math.min(52, w * 0.13);
-  const tubeH = Math.min(190, h * 0.26);
+  const tubeH = Math.min(150, h * 0.17);
   const paths = useMemo(() => tubePaths(tubeW, tubeH), [tubeW, tubeH]);
 
   const particles = useDerivedValue(() => {
@@ -62,25 +65,20 @@ export function LabBackground() {
     <View style={StyleSheet.absoluteFill} onLayout={onLayout} pointerEvents="none">
       {w > 0 && (
         <Canvas style={StyleSheet.absoluteFill}>
-          <Rect x={0} y={0} width={w} height={h}>
-            <LinearGradient start={vec(0, 0)} end={vec(0, h)} colors={['#0B1430', '#070B18']} />
-          </Rect>
-          <Rect x={0} y={0} width={w} height={h}>
-            <RadialGradient c={vec(w / 2, h * 0.38)} r={Math.max(w, h) * 0.6} colors={['rgba(39,227,242,0.16)', 'rgba(39,227,242,0)']} />
-          </Rect>
+          <ThemeBackdrop theme={theme} width={w} height={h} />
 
           {/* blurred equipment silhouettes at the back of the bench */}
           <Group opacity={0.55}>
-            <RoundedRect x={w * 0.06} y={benchY - h * 0.2} width={w * 0.2} height={h * 0.2} r={10} color="#1A2A52"><BlurMask blur={8} style="normal" /></RoundedRect>
-            <RoundedRect x={w * 0.34} y={benchY - h * 0.1} width={w * 0.14} height={h * 0.1} r={8} color="#16224A"><BlurMask blur={8} style="normal" /></RoundedRect>
-            <RoundedRect x={w * 0.7} y={benchY - h * 0.24} width={w * 0.22} height={h * 0.24} r={14} color="#1A2A52"><BlurMask blur={10} style="normal" /></RoundedRect>
+            <RoundedRect x={w * 0.06} y={benchY - h * 0.2} width={w * 0.2} height={h * 0.2} r={10} color={theme.silhouette}><BlurMask blur={8} style="normal" /></RoundedRect>
+            <RoundedRect x={w * 0.34} y={benchY - h * 0.1} width={w * 0.14} height={h * 0.1} r={8} color={theme.silhouette}><BlurMask blur={8} style="normal" /></RoundedRect>
+            <RoundedRect x={w * 0.7} y={benchY - h * 0.24} width={w * 0.22} height={h * 0.24} r={14} color={theme.silhouette}><BlurMask blur={10} style="normal" /></RoundedRect>
           </Group>
 
           {/* bench */}
           <Rect x={0} y={benchY} width={w} height={h - benchY}>
-            <LinearGradient start={vec(0, benchY)} end={vec(0, h)} colors={['#1A2547', '#0A1022']} />
+            <LinearGradient start={vec(0, benchY)} end={vec(0, h)} colors={theme.bench} />
           </Rect>
-          <Rect x={0} y={benchY} width={w} height={2} color="rgba(150,190,255,0.35)" />
+          <Rect x={0} y={benchY} width={w} height={2} color={theme.shelf} />
 
           {/* decorative tubes */}
           {DECOR.map((d, i) => (
@@ -91,8 +89,8 @@ export function LabBackground() {
                   <LinearGradient start={vec(0, 0)} end={vec(tubeW, 0)} colors={['rgba(255,255,255,0.3)', 'rgba(255,255,255,0)', 'rgba(0,0,0,0.3)']} />
                 </Rect>
               </Group>
-              <Path path={paths.outline} style="stroke" strokeWidth={1.4} color="rgba(190,215,255,0.7)" />
-              <Path path={paths.highlight} color="rgba(255,255,255,0.3)" />
+              <Path path={paths.outline} style="stroke" strokeWidth={skin.edgeW} color={skin.edge} />
+              <Path path={paths.highlight} color={skin.highlight} />
             </Group>
           ))}
           <Group transform={[{ translateY: benchY - tubeH + 2 }]}>
@@ -103,7 +101,7 @@ export function LabBackground() {
             ))}
           </Group>
 
-          <Path path={particles} color="rgba(190,230,255,0.45)" />
+          <Path path={particles} color={theme.particle} />
         </Canvas>
       )}
     </View>

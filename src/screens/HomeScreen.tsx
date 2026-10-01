@@ -10,12 +10,14 @@ import { theme } from '../config/theme';
 import { features } from '../config/features';
 import { labLevelFor } from '../config/economy';
 import { LEVELS } from '../data/levels';
+import { currentStreak } from '../game/daily';
 import { continueTarget } from '../game/progress';
 import type { Session } from '../game/types';
 import { LabBackground } from '../render/LabBackground';
 import { audio } from '../services/audio';
 import { loadSavedSession } from '../services/persistence';
 import { useProgressStore } from '../store/progressStore';
+import { localDateKey } from '../utils/date';
 import { playLevel, resumeSession } from '../utils/navigation';
 
 export function HomeScreen() {
@@ -32,6 +34,7 @@ export function HomeScreen() {
 
   const target = continueTarget(save, LEVELS, !!saved);
   const lab = labLevelFor(save.progress.researchXp);
+  const streak = currentStreak(save, localDateKey());
 
   const onPrimary = () => {
     audio.play('button');
@@ -48,6 +51,12 @@ export function HomeScreen() {
             <Text style={styles.chipLabel}>LAB LEVEL</Text>
             <Text maxFontSizeMultiplier={1.3} style={styles.chipValue}>{lab.level}</Text>
           </View>
+          {features.daily && (
+            <View accessible accessibilityLabel={`Daily streak ${streak} days`}>
+              <Text style={styles.chipLabel}>STREAK</Text>
+              <Text maxFontSizeMultiplier={1.3} style={styles.chipValue}>{streak}</Text>
+            </View>
+          )}
           <CoinDisplay coins={save.economy.coins} />
           <Pressable onPress={() => router.push('/settings')} accessibilityRole="button" accessibilityLabel="Settings" style={styles.gear}>
             <Icon name="gear" size={26} />
@@ -60,10 +69,12 @@ export function HomeScreen() {
           <View style={styles.primary}>
             <GlowButton primary label={target.label} onPress={onPrimary} accessibilityLabel={target.kind === 'resume' ? 'Continue your level' : target.label === 'PLAY' ? 'Play' : 'Continue to next level'} />
           </View>
-          <GlowButton label="LEVELS" onPress={() => { audio.play('button'); router.push('/levels'); }} />
-          {features.daily && <GlowButton label="DAILY EXPERIMENT" onPress={() => undefined} />}
-          {features.laboratory && <GlowButton label="LABORATORY" onPress={() => undefined} />}
-          {features.collection && <GlowButton label="COLLECTION" onPress={() => undefined} />}
+          <View style={styles.grid}>
+            <GlowButton wide label="LEVELS" onPress={() => { audio.play('button'); router.push('/levels'); }} />
+            {features.daily && <GlowButton wide label="DAILY EXPERIMENT" onPress={() => { audio.play('button'); router.push('/daily'); }} />}
+            {features.laboratory && <GlowButton wide label="LABORATORY" onPress={() => { audio.play('button'); router.push('/laboratory'); }} />}
+            {features.collection && <GlowButton wide label="COLLECTION" onPress={() => { audio.play('button'); router.push('/collection'); }} />}
+          </View>
         </View>
       </View>
     </View>
@@ -78,6 +89,7 @@ const styles = StyleSheet.create({
   chipValue: { color: theme.text, fontSize: 22, fontWeight: '800' },
   gear: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   logo: { alignItems: 'center', marginTop: 28 },
-  buttons: { marginTop: 48, alignItems: 'center', gap: 12 },
-  primary: { transform: [{ scale: 1.25 }], marginBottom: 14 },
+  buttons: { marginTop: 36, alignItems: 'center', gap: 10 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 10, maxWidth: 330 },
+  primary: { transform: [{ scale: 1.2 }], marginBottom: 8 },
 });

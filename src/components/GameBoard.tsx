@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { AccessibilityInfo, Platform, Pressable, StyleSheet, View } from 'react-native';
 import type { LayoutChangeEvent } from 'react-native';
 import {
-  Canvas, Group, LinearGradient, matchFont, RadialGradient, Rect, vec,
+  Canvas, Group, LinearGradient, matchFont, Rect, vec,
 } from '@shopify/react-native-skia';
 import {
   Easing, useDerivedValue, useFrameCallback, useSharedValue, withSequence, withTiming,
@@ -13,6 +13,8 @@ import { describeEvents } from '../game/accessibility';
 import type { GameEvent, GameState, LiquidColor } from '../game/types';
 import { Particles } from '../render/Particles';
 import { Stream } from '../render/Stream';
+import { ThemeBackdrop } from '../render/ThemeBackdrop';
+import { useCosmetics } from '../render/useCosmetics';
 import { TubeCanvas } from '../render/TubeCanvas';
 import type { BoardAnim } from '../render/TubeCanvas';
 import { TUBE_PAD } from '../render/glassPaint';
@@ -70,6 +72,7 @@ export function GameBoard(props: Props) {
   const reduce = effectiveReduceMotion(settings);
   const patterns = effectivePatterns(settings);
   const palette: Record<LiquidColor, string> = settings.colorBlind ? LIQUID_HEX_COLORBLIND : LIQUID_HEX;
+  const { skin, theme: labTheme, effect } = useCosmetics();
 
   const [size, setSize] = useState({ w: 0, h: 0 });
   const onLayout = (e: LayoutChangeEvent) => setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height });
@@ -177,7 +180,13 @@ export function GameBoard(props: Props) {
     setShown(target);
     setActiveSrc(-1);
     setBusy(false);
-    if (pourTo >= 0) { bump('wobble', pourTo); bump('wobble', pourFrom); }
+    if (pourTo >= 0) {
+      bump('wobble', pourTo); bump('wobble', pourFrom);
+      if (effect === 'sparkle') {
+        const l = layoutRef.current, pos = l.positions[pourTo];
+        if (pos) burst(pos.x + l.tubeW / 2, pos.y + l.tubeH - TUBE_PAD - target.tubes[pourTo].liquids.length * l.unitH, 6, KIND_SPARK, 0.5);
+      }
+    }
     for (const e of evts) {
       if (e.type === 'tubeCompleted') {
         bump('flourish', e.tube);
@@ -188,7 +197,7 @@ export function GameBoard(props: Props) {
     }
     if (evts.some((e) => e.type === 'solved')) winSequence(target);
     AccessibilityInfo.announceForAccessibility(describeEvents(evts));
-  }, [bump, burst, props, setBusy, winSequence]);
+  }, [bump, burst, props, setBusy, winSequence, effect]);
 
   const play = useCallback((pl: Plan, target: GameState, evts: GameEvent[]) => {
     setBusy(true);
@@ -284,17 +293,10 @@ export function GameBoard(props: Props) {
           <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, top: -OVER }}>
           <Canvas style={StyleSheet.absoluteFill}>
             <Group transform={[{ translateY: OVER }]}>
-            <Rect x={0} y={0} width={size.w} height={size.h} color={hc ? '#000814' : undefined}>
-              {!hc && <LinearGradient start={vec(0, 0)} end={vec(0, size.h)} colors={['#0F1A36', '#080D1C']} />}
-            </Rect>
-            {!hc && (
-              <Rect x={0} y={0} width={size.w} height={size.h}>
-                <RadialGradient c={vec(size.w / 2, size.h * 0.45)} r={Math.max(size.w, size.h) * 0.6} colors={['rgba(39,227,242,0.10)', 'rgba(39,227,242,0)']} />
-              </Rect>
-            )}
+            <ThemeBackdrop theme={labTheme} width={size.w} height={size.h} solid={hc} />
             {shelfRows.map((y) => (
               <Group key={y}>
-                <Rect x={8} y={y + layout.tubeH + 2} width={size.w - 16} height={3} color={hc ? '#FFFFFF' : 'rgba(150,190,255,0.35)'} />
+                <Rect x={8} y={y + layout.tubeH + 2} width={size.w - 16} height={3} color={hc ? '#FFFFFF' : labTheme.shelf} />
                 <Rect x={8} y={y + layout.tubeH + 5} width={size.w - 16} height={10}>
                   <LinearGradient start={vec(0, y + layout.tubeH + 5)} end={vec(0, y + layout.tubeH + 15)} colors={['rgba(150,190,255,0.12)', 'rgba(150,190,255,0)']} />
                 </Rect>
@@ -310,7 +312,7 @@ export function GameBoard(props: Props) {
                   tube={shown.tubes[i]}
                   x={pos.x} y={pos.y}
                   tubeW={layout.tubeW} tubeH={layout.tubeH} unitH={layout.unitH}
-                  anim={anim} palette={palette}
+                  anim={anim} palette={palette} skin={skin}
                   patterns={patterns} labels={settings.labels} highContrast={hc} reduceMotion={reduce}
                   font={font}
                   selected={selected === i}
@@ -320,7 +322,7 @@ export function GameBoard(props: Props) {
                 />
               );
             })}
-            <Stream anim={anim} reduceMotion={reduce} />
+            <Stream anim={anim} reduceMotion={reduce} effect={effect} />
             <Particles state={particles} />
             <Rect x={0} y={0} width={size.w} height={size.h} color="#FFFFFF" opacity={brightenOpacity} />
             </Group>

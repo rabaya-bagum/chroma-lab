@@ -16,6 +16,8 @@ interface GameStore {
   start(level: Level): void;
   /** Continue a saved in-progress session. */
   resume(session: Session): void;
+  /** Count a hint for this visit (affects the free-hint allowance and achievements, never stars). */
+  addHintUsed(): void;
   /** Add play time (ms) while the app is in the foreground. */
   tick(deltaMs: number): void;
   tap(tube: number): TapAction | null;
@@ -34,6 +36,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   start: (level) => set({ session: createSession(level, Date.now()), selected: null, lastEvents: [], shake: null }),
 
   resume: (session) => set({ session, selected: null, lastEvents: [], shake: null }),
+
+  addHintUsed: () => {
+    const { session } = get();
+    if (session) set({ session: { ...session, hintsUsed: session.hintsUsed + 1 } });
+  },
 
   tick: (deltaMs) => {
     const { session } = get();

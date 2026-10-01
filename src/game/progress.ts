@@ -25,6 +25,9 @@ export interface CompletionResult {
   /** All coins added by this completion. */
   coinsEarned: number;
   starsGained: number;
+  /** Cosmetic ids and lab equipment ids unlocked by this completion. */
+  unlockedCosmetics: string[];
+  unlockedEquipment: string[];
 }
 
 export const isLevelCompleted = (save: GameSave, levelId: string): boolean =>
@@ -97,6 +100,8 @@ export function completeLevel(
       achievements,
       coinsEarned: levelCoins + achievementCoins,
       starsGained: next.progress.starsTotal - save.progress.starsTotal,
+      unlockedCosmetics: next.cosmetics.owned.filter((id) => !save.cosmetics.owned.includes(id)),
+      unlockedEquipment: next.progress.labUnlocked.filter((id) => !save.progress.labUnlocked.includes(id)),
     },
   };
 }

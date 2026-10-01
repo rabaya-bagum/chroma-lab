@@ -4,7 +4,9 @@ import { LEVELS } from '../data/levels';
 import { isPuzzleSolved } from '../game/rules';
 import { deserializeSession, serializeSession } from '../game/serialize';
 import type { SaveDataV1 } from '../game/save';
-import type { Session } from '../game/types';
+import { isDailyId } from '../game/daily';
+import type { Level, Session } from '../game/types';
+import { loadCachedDaily } from './dailyPuzzle';
 import { useGameStore } from '../store/gameStore';
 import { useProgressStore } from '../store/progressStore';
 import { persistedSettings, useSettingsStore } from '../store/settingsStore';
@@ -61,5 +63,15 @@ export async function initPersistence(): Promise<void> {
 /** A valid saved in-progress session, or null. */
 export async function loadSavedSession(): Promise<Session | null> {
   const json = await persistence.loadSession();
-  return json ? deserializeSession(json, LEVELS) : null;
+  if (!json) return null;
+  // a saved daily puzzle needs that day's level, which lives in the daily cache
+  let levels: readonly Level[] = LEVELS;
+  try {
+    const id = (JSON.parse(json) as { levelId?: unknown }).levelId;
+    if (typeof id === 'string' && isDailyId(id)) {
+      const daily = await loadCachedDaily(AsyncStorage, id.replace(/^daily-/, ''));
+      if (daily) levels = [...LEVELS, daily];
+    }
+  } catch { return null; }
+  return deserializeSession(json, levels);
 }

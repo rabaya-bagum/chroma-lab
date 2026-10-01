@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { theme } from '../config/theme';
+import type { DailyResult } from '../game/daily';
 import type { CompletionResult } from '../game/progress';
 import { useReduceMotion } from '../store/settingsStore';
 import { CoinDisplay } from './CoinDisplay';
@@ -94,3 +95,54 @@ const styles = StyleSheet.create({
   achText: { color: '#FFD84D', fontWeight: '700' },
   buttons: { flexDirection: 'row', gap: 10, marginTop: 4 },
 });
+
+interface DailyProps {
+  result: DailyResult;
+  onReplay(): void;
+  onHome(): void;
+}
+
+const fmtTime = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
+
+/** Results for the Daily Experiment: moves, time, streak and coins. */
+export function DailyWinOverlay({ result, onReplay, onHome }: DailyProps) {
+  const reduce = useReduceMotion();
+  const [coins, setCoins] = useState(reduce ? result.coinsEarned : 0);
+  useEffect(() => {
+    if (reduce) return;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    for (let k = 1; k <= 20; k++) timers.push(setTimeout(() => setCoins(Math.round((result.coinsEarned * k) / 20)), 300 + (COUNT_MS * k) / 20));
+    return () => timers.forEach(clearTimeout);
+  }, [reduce, result.coinsEarned]);
+
+  return (
+    <View style={styles.scrim} accessibilityViewIsModal>
+      <View style={styles.card} accessibilityLiveRegion="polite">
+        <Text maxFontSizeMultiplier={1.3} style={styles.title} accessibilityRole="header">EXPERIMENT COMPLETE</Text>
+        <Text style={styles.earned}>DAILY EXPERIMENT</Text>
+        <View style={styles.stats}>
+          <Stat label="MOVES" value={String(result.moves)} />
+          <Stat label="TIME" value={fmtTime(result.timeMs)} />
+          <Stat label="STREAK" value={String(result.streak)} />
+        </View>
+        {!result.firstCompletion && <Text style={styles.newBest}>BEST: {result.bestMoves} MOVES, {fmtTime(result.bestTimeMs)}</Text>}
+        {result.coinsEarned > 0 && (
+          <View style={styles.coinRow} accessible accessibilityLabel={`${result.coinsEarned} coins earned, including ${result.streakBonus} streak bonus`}>
+            <Text style={styles.earned}>EARNED</Text>
+            <CoinDisplay coins={coins} />
+          </View>
+        )}
+        {result.achievements.map((a) => (
+          <View key={a.id} style={styles.ach} accessible accessibilityLabel={`Achievement unlocked: ${a.name}, ${a.reward} coins`}>
+            <Icon name="hint" size={16} color="#FFD84D" />
+            <Text maxFontSizeMultiplier={1.3} style={styles.achText}>{a.name}  +{a.reward}</Text>
+          </View>
+        ))}
+        <View style={styles.buttons}>
+          <GlowButton primary label="DONE" onPress={onHome} />
+          <GlowButton label="REPLAY" onPress={onReplay} />
+        </View>
+      </View>
+    </View>
+  );
+}

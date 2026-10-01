@@ -16,6 +16,8 @@ import type { PatternKind } from './patterns';
 import { planProgress, slotFillAt } from './plan';
 import type { Plan } from './plan';
 import { poseAt } from './pourGeometry';
+import { facetPath } from './skins';
+import type { TubeSkin } from './skins';
 
 /** Shared animation state owned by the board. */
 export interface BoardAnim {
@@ -36,6 +38,7 @@ export interface TubeCanvasProps {
   unitH: number;
   anim: BoardAnim;
   palette: Record<LiquidColor, string>;
+  skin: TubeSkin;
   patterns: boolean;
   labels: boolean;
   highContrast: boolean;
@@ -54,11 +57,12 @@ const ACCENT = '#27E3F2';
 interface SlotView { y: number; h: number; color: string; name: string; fill: number; hex: string }
 
 export const TubeCanvas = React.memo(function TubeCanvas(p: TubeCanvasProps) {
-  const { index, tube, x, y, tubeW, tubeH, unitH, anim, palette, reduceMotion } = p;
+  const { index, tube, x, y, tubeW, tubeH, unitH, anim, palette, reduceMotion, skin } = p;
   const cap = tube.capacity;
   const len = tube.liquids.length;
   const innerW = tubeW - 2 * GLASS_INSET;
   const paths = useMemo(() => tubePaths(tubeW, tubeH), [tubeW, tubeH]);
+  const facets = useMemo(() => (skin.facets ? facetPath(tubeW, tubeH) : null), [skin.facets, tubeW, tubeH]);
   const patternPaths = useMemo(() => {
     const out = {} as Record<PatternKind, SkPath>;
     for (const k of KINDS) out[k] = patternPath(k, innerW, unitH);
@@ -206,8 +210,8 @@ export const TubeCanvas = React.memo(function TubeCanvas(p: TubeCanvasProps) {
   const capShineX = useDerivedValue(() => -tubeW * 0.5 + flourish.value * tubeW * 1.6);
   const capShineAlpha = useDerivedValue(() => Math.sin(Math.PI * flourish.value) * 0.9);
 
-  const edgeW = p.highContrast ? 2.8 : 1.6;
-  const edgeColor = p.highContrast ? '#FFFFFF' : 'rgba(190,215,255,0.8)';
+  const edgeW = p.highContrast ? Math.max(2.8, skin.edgeW + 0.8) : skin.edgeW;
+  const edgeColor = p.highContrast ? '#FFFFFF' : skin.edge;
   const sepColor = p.highContrast ? '#FFFFFF' : 'rgba(0,0,0,0.32)';
   const sepH = p.highContrast ? 2.4 : 1.2;
   const showMarks = p.patterns || p.labels;
@@ -223,7 +227,13 @@ export const TubeCanvas = React.memo(function TubeCanvas(p: TubeCanvasProps) {
         <BlurMask blur={10} style="normal" />
       </Path>
 
-      <Path path={paths.body} color="rgba(150,190,255,0.07)" />
+      {skin.glow && (
+        <Path path={paths.outline} style="stroke" strokeWidth={4} color={skin.glow.color} opacity={skin.glow.alpha}>
+          <BlurMask blur={6} style="normal" />
+        </Path>
+      )}
+
+      <Path path={paths.body} color={skin.fill} />
 
       <Group clip={paths.body}>
         <Group transform={levelTransform}>
@@ -250,15 +260,16 @@ export const TubeCanvas = React.memo(function TubeCanvas(p: TubeCanvasProps) {
       </Group>
 
       <Path path={paths.outline} style="stroke" strokeWidth={edgeW} color={edgeColor} />
-      <Path path={paths.highlight} color="rgba(255,255,255,0.35)" />
-      <Path path={paths.reflection} color="rgba(255,255,255,0.18)" />
-      <Path path={paths.rim} style="stroke" strokeWidth={1.2} color="rgba(220,235,255,0.7)" />
+      {facets && <Path path={facets} style="stroke" strokeWidth={1} color="rgba(255,255,255,0.22)" />}
+      <Path path={paths.highlight} color={skin.highlight} />
+      <Path path={paths.reflection} color={skin.reflection} />
+      <Path path={paths.rim} style="stroke" strokeWidth={1.2} color={skin.rim} />
 
       {/* seal cap */}
       <Group opacity={capT}>
         <Group transform={capTransform}>
           <RoundedRect x={-1} y={0} width={tubeW + 2} height={9} r={3.5}>
-            <LinearGradient start={vec(0, 0)} end={vec(0, 9)} colors={['#E9F3FF', '#8FA6C9', '#55698C']} />
+            <LinearGradient start={vec(0, 0)} end={vec(0, 9)} colors={skin.cap} />
           </RoundedRect>
           <Group clip={Skia.RRectXY(Skia.XYWHRect(-1, 0, tubeW + 2, 9), 3.5, 3.5)} opacity={capShineAlpha}>
             <Rect x={capShineX} y={0} width={tubeW * 0.3} height={9} color="rgba(255,255,255,0.95)" />

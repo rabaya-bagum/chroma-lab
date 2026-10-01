@@ -14,6 +14,8 @@ npm run typecheck
 npm run lint
 npm run levels:generate # regenerate src/data/levels.generated.ts (deterministic)
 npm run levels:verify   # re-solve every shipped level; non-zero exit on any problem
+npx tsx scripts/generate-daily-pool.ts   # regenerate the 60 fallback daily puzzles
+npx tsx scripts/print-daily-solution.ts [YYYY-MM-DD]   # a date's daily solution, for QA
 npm run web:setup && npm run web   # browser build for visual QA only (needs CanvasKit wasm)
 ```
 
@@ -29,4 +31,4 @@ npm run web:setup && npm run web   # browser build for visual QA only (needs Can
 
 ## Status
 
-Phases 1 (engine, solver, levels), 2 (Skia rendering, animation, audio and haptics, accessibility) and 3 (splash, home, level select, win overlay, coins and stars, persistence with resume, tutorial, settings, achievements) are complete. See `SPEC.md` section 17 for the remaining phases.
+Phases 1 (engine, solver, levels), 2 (Skia rendering, animation, audio and haptics, accessibility), 3 (splash, home, level select, win overlay, coins and stars, persistence with resume, tutorial, settings, achievements) and 4 (hints, Daily Experiment, Collection, Laboratory) are complete. See `SPEC.md` section 17 for the remaining phases.

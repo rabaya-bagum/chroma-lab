@@ -8,8 +8,10 @@ import { leaveGame, playLevel } from '../../utils/navigation';
 
 export default function GameRoute() {
   const { levelId, tutorial } = useLocalSearchParams<{ levelId: string; tutorial?: string }>();
-  const level = LEVELS.find((l) => l.id === levelId);
-  const hasSession = useGameStore((s) => s.session?.level.id === levelId);
+  const sessionLevel = useGameStore((s) => (s.session?.level.id === levelId ? s.session.level : null));
+  // the daily puzzle is not part of LEVELS; it comes from the prepared session
+  const level = LEVELS.find((l) => l.id === levelId) ?? sessionLevel ?? undefined;
+  const hasSession = !!sessionLevel;
 
   // deep link or reload without a prepared session: start the level
   useEffect(() => {
@@ -22,10 +24,10 @@ export default function GameRoute() {
     if (s && s.level.id === levelId) { useGameStore.getState().clear(); void persistence.clearSession(); }
   }, [levelId]);
 
-  if (!level) return <Redirect href="/levels" />;
+  if (!level) return <Redirect href={levelId?.startsWith('daily-') ? '/daily' : '/levels'} />;
   if (!hasSession) return null;
 
-  const next = LEVELS[LEVELS.indexOf(level) + 1];
+  const next = LEVELS[LEVELS.indexOf(level) + 1]; // undefined for the daily puzzle
   return (
     <GameScreen
       key={level.id}

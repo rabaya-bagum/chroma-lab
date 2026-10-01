@@ -5,17 +5,17 @@ import { Icon } from './Icon';
 import { CoinDisplay } from './CoinDisplay';
 import { StarRow } from './StarRow';
 
-interface Props { levelNumber: number; moves: number; stars: number; coins: number; onBack(): void }
+interface Props { levelNumber: number; moves: number; stars: number; coins: number; onBack(): void; title?: string; showStars?: boolean }
 
-export function TopBar({ levelNumber, moves, stars, coins, onBack }: Props) {
+export function TopBar({ levelNumber, moves, stars, coins, onBack, title, showStars = true }: Props) {
   return (
     <View style={styles.bar}>
       <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="Back to levels" style={styles.back}>
         <Icon name="back" size={24} />
       </Pressable>
       <View style={styles.center}>
-        <Text maxFontSizeMultiplier={1.3} style={styles.title} accessibilityRole="header">LEVEL {levelNumber}</Text>
-        <StarRow count={stars} size={16} />
+        <Text maxFontSizeMultiplier={1.3} style={styles.title} accessibilityRole="header">{title ?? `LEVEL ${levelNumber}`}</Text>
+        {showStars && <StarRow count={stars} size={16} />}
       </View>
       <View style={styles.right}>
         <CoinDisplay coins={coins} />

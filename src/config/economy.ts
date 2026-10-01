@@ -14,8 +14,16 @@ export const ECONOMY = {
   xpPerDaily: 20,
 } as const;
 
+/** Levels 1-10 are free; the daily puzzle (number 0) always uses the paid rates. */
+export const isFreeLevel = (levelNumber: number): boolean =>
+  levelNumber >= 1 && levelNumber <= ECONOMY.freeLevelsUpTo;
+
 export const extraTubeCost = (levelNumber: number): number =>
-  levelNumber <= ECONOMY.freeLevelsUpTo ? 0 : ECONOMY.extraTube;
+  isFreeLevel(levelNumber) ? 0 : ECONOMY.extraTube;
+
+/** Hints: free on levels 1-10; after that one free hint per level visit, then 50 coins each (§8.4). */
+export const hintCost = (levelNumber: number, hintsUsedThisVisit: number): number =>
+  isFreeLevel(levelNumber) || hintsUsedThisVisit < ECONOMY.freeHintsPerVisit ? 0 : ECONOMY.hint;
 
 export const streakBonus = (streakDay: number): number =>
   Math.min(ECONOMY.streakMax, ECONOMY.streakPerDay * Math.max(0, streakDay));

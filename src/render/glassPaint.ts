@@ -29,7 +29,7 @@ export function tubePaths(w: number, h: number): TubePaths {
   const r = w / 2 - 1;              // bottom is a half-circle
   const left = 1, right = w - 1;
 
-  const body = Skia.Path.Make();
+  const body = Skia.PathBuilder.Make();
   body.moveTo(left, 0);
   body.lineTo(left, h - r);
   body.arcToTangent(left, h, left + r, h, r);
@@ -37,23 +37,23 @@ export function tubePaths(w: number, h: number): TubePaths {
   body.lineTo(right, 0);
   body.close();
 
-  const outline = Skia.Path.Make();
+  const outline = Skia.PathBuilder.Make();
   outline.moveTo(left, 0);
   outline.lineTo(left, h - r);
   outline.arcToTangent(left, h, left + r, h, r);
   outline.arcToTangent(right, h, right, h - r, r);
   outline.lineTo(right, 0);
 
-  const highlight = Skia.Path.Make();
+  const highlight = Skia.PathBuilder.Make();
   highlight.addRRect(Skia.RRectXY(Skia.XYWHRect(left + 4, 6, 3, h - r - 14), 1.5, 1.5));
 
-  const reflection = Skia.Path.Make();
+  const reflection = Skia.PathBuilder.Make();
   reflection.addRRect(Skia.RRectXY(Skia.XYWHRect(right - 6, 10, 2, h * 0.3), 1, 1));
 
-  const rim = Skia.Path.Make();
+  const rim = Skia.PathBuilder.Make();
   rim.addOval(Skia.XYWHRect(left, -2.5, right - left, 5));
 
-  const paths = { body, outline, highlight, reflection, rim };
+  const paths = { body: body.build(), outline: outline.build(), highlight: highlight.build(), reflection: reflection.build(), rim: rim.build() };
   cache.set(key, paths);
   return paths;
 }

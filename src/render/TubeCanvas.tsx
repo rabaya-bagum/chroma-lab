@@ -249,8 +249,8 @@ export const TubeCanvas = React.memo(function TubeCanvas(p: TubeCanvasProps) {
 
   const wave = useDerivedValue(() => {
     const top = surface.value;
-    const path = Skia.Path.Make();
-    if (top.total <= 0.5) return path;
+    const path = Skia.PathBuilder.Make();
+    if (top.total <= 0.5) return path.build();
     const amp = reduceMotion ? 0 : 0.7 + 1.9 * wobble.value;
     const x0 = GLASS_INSET - 2, x1 = tubeW - GLASS_INSET + 2;
     const n = 10;
@@ -260,12 +260,12 @@ export const TubeCanvas = React.memo(function TubeCanvas(p: TubeCanvasProps) {
       path.lineTo(xx, top.y - amp * Math.sin(anim.phase.value * 2.4 + i * 0.7));
     }
     path.lineTo(x1, top.y + 3); path.lineTo(x0, top.y + 3); path.close();
-    return path;
+    return path.build();
   });
   const waveLine = useDerivedValue(() => {
     const top = surface.value;
-    const path = Skia.Path.Make();
-    if (top.total <= 0.5) return path;
+    const path = Skia.PathBuilder.Make();
+    if (top.total <= 0.5) return path.build();
     const amp = reduceMotion ? 0 : 0.7 + 1.9 * wobble.value;
     const x0 = GLASS_INSET, x1 = tubeW - GLASS_INSET;
     const n = 10;
@@ -274,7 +274,7 @@ export const TubeCanvas = React.memo(function TubeCanvas(p: TubeCanvasProps) {
       const yy = top.y - amp * Math.sin(anim.phase.value * 2.4 + i * 0.7);
       if (i === 0) path.moveTo(xx, yy); else path.lineTo(xx, yy);
     }
-    return path;
+    return path.build();
   });
   const surfaceColor = useDerivedValue(() => surface.value.color);
   const shadeTop = useDerivedValue(() => surface.value.y);

@@ -59,13 +59,14 @@ export function facetPath(w: number, h: number): SkPath {
   const key = `${Math.round(w * 10)}x${Math.round(h * 10)}`;
   const hit = facetCache.get(key);
   if (hit) return hit;
-  const p = Skia.Path.Make();
+  const p = Skia.PathBuilder.Make();
   const n = 5;
   for (let i = 0; i < n; i++) {
     const y = (h * (i + 0.6)) / (n + 0.4);
     p.moveTo(2, y + (i % 2 ? 10 : -6)); p.lineTo(w - 2, y + (i % 2 ? -8 : 12));
   }
   p.moveTo(w * 0.5, 2); p.lineTo(w * 0.5 + 1, h - 8);
-  facetCache.set(key, p);
-  return p;
+  const built = p.build();
+  facetCache.set(key, built);
+  return built;
 }

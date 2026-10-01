@@ -336,10 +336,10 @@ export function GameBoard(props: Props) {
   );
   const arcPath = useDerivedValue(() => {
     const [x0, y0, x1, y1] = catGeom.value;
-    const p = Skia.Path.Make();
+    const p = Skia.PathBuilder.Make();
     p.moveTo(x0, y0);
     p.quadTo((x0 + x1) / 2, Math.min(y0, y1) - 70, x1, y1);
-    return p;
+    return p.build();
   });
   const ringR = useDerivedValue(() => catGeom.value[4] * (0.3 + 1.2 * catT.value));
   const ringOpacity = useDerivedValue(() => (catT.value >= 1 ? 0 : 1 - catT.value));

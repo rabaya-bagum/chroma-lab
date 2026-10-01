@@ -14,14 +14,14 @@ export function Logo({ compact = false }: { compact?: boolean }) {
   useFrameCallback((i) => { if (!reduce) t.value += Math.min(0.05, (i.timeSincePreviousFrame ?? 16) / 1000); });
   const { w, h } = size;
   const wave = useDerivedValue(() => {
-    const p = Skia.Path.Make();
-    if (w <= 0) return p;
+    const p = Skia.PathBuilder.Make();
+    if (w <= 0) return p.build();
     const base = h * 0.45;
     p.moveTo(0, h);
     for (let x = 0; x <= w; x += 6) p.lineTo(x, base + Math.sin(x / 28 + t.value * 1.6) * 4 + Math.sin(x / 11 - t.value * 2.1) * 1.5);
     p.lineTo(w, h);
     p.close();
-    return p;
+    return p.build();
   });
   const onLayout = (e: LayoutChangeEvent) => setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height });
 

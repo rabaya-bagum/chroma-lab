@@ -17,7 +17,7 @@ npm run levels:verify   # re-solve every shipped level; non-zero exit on any pro
 npx tsx scripts/generate-daily-pool.ts   # regenerate the 60 fallback daily puzzles
 npx tsx scripts/print-daily-solution.ts [YYYY-MM-DD]   # a date's daily solution, for QA
 npx tsx scripts/print-level-solution.ts L047           # a level's solution and its events, for QA
-npm run web:setup && npm run web   # browser build for visual QA only (needs CanvasKit wasm)
+npm run web            # browser build (copies the CanvasKit wasm into public/ first)
 ```
 
 ## Layout

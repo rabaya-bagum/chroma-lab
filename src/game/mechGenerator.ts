@@ -57,7 +57,7 @@ export function buildCandidate(spec: MechSpec, seed: string, rng: Rng): Level {
   const colors = COLORS.slice(0, r.colors);
   const rows = dealTubes(rng, colors, r.empties);
   const tubes: TubeDef[] = rows.map((row, i) => tubeFromString(`T${i + 1}`, row));
-  const filled = () => tubes.map((t, i) => i).filter((i) => tubes[i].liquids.length > 0);
+  const filled = () => tubes.map((_, i) => i).filter((i) => tubes[i].liquids.length > 0);
   const claimed = new Set<number>(); // tubes that already carry a rule
 
   const choose = (n: number, from = filled()): number[] => {
@@ -106,7 +106,7 @@ export function buildCandidate(spec: MechSpec, seed: string, rng: Rng): Level {
   if (r.catalyst) {
     const host = pick(rng, tubes.map((_, i) => i).filter((i) => !claimed.has(i)));
     const effect = r.catalyst.effect;
-    const hiddenIdx = tubes.map((t, i) => i).filter((i) => tubes[i].liquids.some((l) => l.hidden));
+    const hiddenIdx = tubes.map((_, i) => i).filter((i) => tubes[i].liquids.some((l) => l.hidden));
     const target = effect === 'unlock' ? pick(rng, lockedIdx) : effect === 'thaw' ? pick(rng, frozenIdx) : pick(rng, hiddenIdx);
     const present = [...new Set(tubes.flatMap((t) => t.liquids.map((l) => l.color)))];
     tubes[host].catalyst = {

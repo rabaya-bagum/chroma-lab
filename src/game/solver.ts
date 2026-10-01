@@ -238,7 +238,7 @@ export interface Searcher { run(shouldYield?: () => boolean): SearchOutcome | nu
  * Returns null if the position cannot be modelled (mechanics but no level).
  */
 export function createSearch(state: GameState, weight: number, maxNodes: number, level?: Level): Searcher | null {
-  const mech = state.tubes.some((t) => t.locked || t.catalystSpent || t.liquids.some((l) => l.frozen || l.hidden));
+  const mech = !!state.mix || state.tubes.some((t) => t.locked || t.catalystSpent || t.liquids.some((l) => l.frozen || l.hidden));
   if (level && (hasMechanics(level) || mech)) return new MechSearch(level, state, weight, maxNodes);
   if (mech) return null;
   return new Search(encode(state), weight, maxNodes);

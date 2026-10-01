@@ -1,6 +1,7 @@
 import { poseAt } from './pourGeometry';
 import type { PourTarget, PourTimeline } from './pourGeometry';
 import type { LiquidColor } from '../game/types';
+import { mixHex } from './mix';
 
 /**
  * One animated transfer of liquid. Built on the JS thread from an engine move
@@ -28,6 +29,16 @@ export interface Plan {
   tubeW: number;
   tubeH: number;
   unitH: number;
+  /**
+   * Colour mixing (§11.6). The arriving unit starts as `hex` and ends as `arriveHex`,
+   * and one unit already in a tube changes colour in step with the pour (`fade`).
+   * A mixing undo runs it backwards: the leaving unit keeps `srcHex`.
+   */
+  arriveHex?: string;
+  arriveName?: LiquidColor;
+  srcHex?: string;
+  srcName?: LiquidColor;
+  fade?: { tube: number; slot: number; from: string; to: string; fromName: LiquidColor; toName: LiquidColor };
 }
 
 /** 0..1 liquid transfer progress at time t. */
@@ -47,4 +58,26 @@ export function slotFillAt(pl: Plan | null, index: number, k: number, len: numbe
     if (pl.to === index && k >= pl.dstStart && k < pl.dstStart + pl.amount) f = p;
   }
   return f;
+}
+
+/**
+ * Colour and pattern name of slot k of tube `index` while `pl` plays, given its
+ * committed colour. Plain pours recolour the arriving and leaving units; a mix
+ * also blends the arriving unit and one resting unit toward the result colour.
+ */
+export function slotLookAt(
+  pl: Plan | null, index: number, k: number, p: number, name: string, hex: string,
+): { name: string; hex: string } {
+  'worklet';
+  if (!pl) return { name, hex };
+  if (pl.to === index && k >= pl.dstStart && k < pl.dstStart + pl.amount) {
+    if (pl.arriveHex) return { name: p > 0.5 && pl.arriveName ? pl.arriveName : pl.color, hex: mixHex(pl.hex, pl.arriveHex, p) };
+    return { name: pl.color, hex: pl.hex };
+  }
+  if (pl.from === index && k >= pl.srcKeep && k < pl.srcKeep + pl.amount) {
+    return { name: pl.srcName ?? pl.color, hex: pl.srcHex ?? pl.hex };
+  }
+  const f = pl.fade;
+  if (f && f.tube === index && f.slot === k) return { name: p > 0.5 ? f.toName : f.fromName, hex: mixHex(f.from, f.to, p) };
+  return { name, hex };
 }

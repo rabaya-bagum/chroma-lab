@@ -95,7 +95,7 @@ function settle(
       if (cat && !t.catalystSpent && (pourColor === cat.triggerColor || mixColor === cat.triggerColor)) {
         tubes[pourTo] = { ...t, catalystSpent: true };
         events.push({ type: 'catalystActivated', tube: pourTo, effect: cat.effect });
-        if (applyEffect(level, tubes, cat.effect, events)) changed = true;
+        if (applyEffect(tubes, cat.effect, events)) changed = true;
         changed = true;
       }
     }
@@ -135,7 +135,7 @@ function thaw(t: TubeState): TubeState {
 }
 
 /** Apply a catalyst effect to its target tube. Returns true if anything changed. */
-function applyEffect(level: Level, tubes: TubeState[], effect: CatalystEffect, events: GameEvent[]): boolean {
+function applyEffect(tubes: TubeState[], effect: CatalystEffect, events: GameEvent[]): boolean {
   const i = tubes.findIndex((t) => t.id === effect.tubeId);
   if (i < 0) return false;
   const t = tubes[i];

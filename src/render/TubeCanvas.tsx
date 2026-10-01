@@ -13,7 +13,7 @@ import { GLASS_INSET, TUBE_PAD, tubePaths } from './glassPaint';
 import { inkFor } from './liquidPaint';
 import { PATTERN_FOR, isFilledPattern, patternPath } from './patterns';
 import type { PatternKind } from './patterns';
-import { planProgress, slotFillAt } from './plan';
+import { planProgress, slotFillAt, slotLookAt } from './plan';
 import type { Plan } from './plan';
 import { poseAt } from './pourGeometry';
 import { crackPath, questionPath, shacklePath } from './marks';
@@ -205,10 +205,9 @@ export const TubeCanvas = React.memo(function TubeCanvas(p: TubeCanvasProps) {
     let used = 0;
     for (let k = 0; k < cap; k++) {
       const fill = slotFillAt(pl, index, k, len, prog);
-      let name = k < len ? names[k] : '';
-      let hex = k < len ? palette[names[k]] : '';
-      if (pl && pl.to === index && k >= pl.dstStart && k < pl.dstStart + pl.amount) { name = pl.color; hex = pl.hex; }
-      if (pl && pl.from === index && k >= pl.srcKeep && k < pl.srcKeep + pl.amount) { name = pl.color; hex = pl.hex; }
+      const look = slotLookAt(pl, index, k, prog, k < len ? names[k] : '', k < len ? palette[names[k]] : '');
+      let name = look.name;
+      let hex = look.hex;
       let veil = 0;
       if (k < len && hasBit(hideMask.value, k)) {
         if (hasBit(revealBits.value, k)) {

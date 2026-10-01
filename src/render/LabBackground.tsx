@@ -62,7 +62,7 @@ export function LabBackground() {
   });
 
   return (
-    <View style={StyleSheet.absoluteFill} onLayout={onLayout} pointerEvents="none">
+    <View style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]} onLayout={onLayout}>
       {w > 0 && (
         <Canvas style={StyleSheet.absoluteFill}>
           <ThemeBackdrop theme={theme} width={w} height={h} />

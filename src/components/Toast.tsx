@@ -29,7 +29,7 @@ export function ToastHost() {
   const queue = useToastStore((s) => s.queue);
   const insets = useSafeAreaInsets();
   return (
-    <View pointerEvents="none" style={[styles.host, { top: insets.top + 8 }]}>
+    <View style={[styles.host, { top: insets.top + 8, pointerEvents: 'none' }]}>
       {queue.map((t) => <ToastView key={t.id} item={t} />)}
     </View>
   );

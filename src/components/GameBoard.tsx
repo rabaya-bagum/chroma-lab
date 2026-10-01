@@ -358,7 +358,7 @@ export function GameBoard(props: Props) {
       {ready && (
         <>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => { if (!busy.current) onBackgroundTap(); }} accessible={false} />
-          <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, top: -OVER }}>
+          <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, top: -OVER, pointerEvents: 'none' }}>
           <Canvas style={StyleSheet.absoluteFill}>
             <Group transform={[{ translateY: OVER }]}>
             <ThemeBackdrop theme={labTheme} width={size.w} height={size.h} solid={hc} />
@@ -406,7 +406,7 @@ export function GameBoard(props: Props) {
           </View>
           {shown.tubes.map((t, i) => (
             t.locked && lockTexts[i] && layout.positions[i] ? (
-              <View key={`lock-${t.id}`} pointerEvents="none" style={[styles.badge, { left: layout.positions[i].x - 14, width: layout.tubeW + 28, top: layout.positions[i].y + layout.tubeH * 0.42 + 16 }]}>
+              <View key={`lock-${t.id}`} style={[styles.badge, { pointerEvents: 'none' }, { left: layout.positions[i].x - 14, width: layout.tubeW + 28, top: layout.positions[i].y + layout.tubeH * 0.42 + 16 }]}>
                 <Text maxFontSizeMultiplier={1.3} style={styles.badgeText}>{lockTexts[i]}</Text>
               </View>
             ) : null

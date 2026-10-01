@@ -1,4 +1,5 @@
 import React from 'react';
+import { View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 function starD(size: number, x0: number): string {
@@ -16,16 +17,18 @@ function starD(size: number, x0: number): string {
 export function StarRow({ count, size = 18 }: { count: number; size?: number }) {
   const width = size * 3 + 8;
   return (
-    <Svg width={width} height={size} accessible accessibilityLabel={`${count} of 3 stars`}>
-      {[0, 1, 2].map((i) => (
-        <Path
-          key={i}
-          d={starD(size, i * (size + 4))}
-          fill={i < count ? '#FFD84D' : 'rgba(255,255,255,0.12)'}
-          stroke={i < count ? '#FFF1B8' : 'rgba(150,190,255,0.4)'}
-          strokeWidth={1}
-        />
-      ))}
-    </Svg>
+    <View accessible accessibilityLabel={`${count} of 3 stars`}>
+      <Svg width={width} height={size}>
+        {[0, 1, 2].map((i) => (
+          <Path
+            key={i}
+            d={starD(size, i * (size + 4))}
+            fill={i < count ? '#FFD84D' : 'rgba(255,255,255,0.12)'}
+            stroke={i < count ? '#FFF1B8' : 'rgba(150,190,255,0.4)'}
+            strokeWidth={1}
+          />
+        ))}
+      </Svg>
+    </View>
   );
 }

@@ -60,3 +60,14 @@
 - [ ] Each mechanic level shows its rules in plain language under the top bar; with Reduce Motion the arcs and dissolves are replaced by instant changes.
 - [ ] Hints on mechanic levels return a legal move or "No hint available right now" (the search may time out on the hardest ones); they never block animation.
 - [ ] Performance: pours with frost, veils and padlocks on screen stay smooth on a mid-range Android phone.
+
+## Colour mixing (Chapter 6)
+- [ ] Level 56 shows the recipe legend and the three-step mixing tutorial on first play; Skip works.
+- [ ] Selecting a tube shows the result colour above each tube it would mix with, and nothing above the others.
+- [ ] Pouring red onto blue (and blue onto red) leaves two violet units in the destination and one fewer unit in the source.
+- [ ] A full destination refuses a mix (shake); a frozen top refuses a mix.
+- [ ] Undo after a mix restores both tubes; Restart works; closing and resuming mid-level keeps the mixed state.
+- [ ] Hint on a mixing move reads "Try mixing X into Y".
+- [ ] Screen reader: with a tube selected, tubes announce "pouring here mixes purple"; a mix announces "Mixed red with blue into two purple".
+- [ ] Levels 56-65 are all completable; 60 shows the reactor meter; 62 and 64 mix with hidden layers; 65 has a locked tube.
+- [ ] The daily experiment never offers mixing.

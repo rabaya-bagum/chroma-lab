@@ -1,6 +1,9 @@
 # Colour mixing: design proposal (SPEC.md section 11.6)
 
-Status: **proposal, not implemented.** Standard levels never mix, and nothing in `src/` has changed.
+Status: **approved and implemented** (branch `feature/colour-mixing`). Decisions taken: the
+red-blue-yellow table; a mixing level must need mixing (the generator proves it); one drop per
+mix; no confirmation step (a preview badge plus free undo); a new Chapter 6, levels 56-65, with
+the daily puzzle never mixing; placeholder art and sound. The text below is the original proposal.
 The numbers below come from a throwaway prototype, `scripts/prototypes/mixing.ts`, which models the
 candidate rules in a small standalone engine so they could be measured before touching the real one.
 

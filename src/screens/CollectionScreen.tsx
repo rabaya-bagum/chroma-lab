@@ -1,4 +1,3 @@
-import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,6 +11,7 @@ import { CosmeticPreview } from '../render/CosmeticPreview';
 import { audio } from '../services/audio';
 import { useProgressStore } from '../store/progressStore';
 import { useToastStore } from '../store/toastStore';
+import { goBack } from '../utils/navigation';
 
 const CATEGORIES: CosmeticCategory[] = ['tube', 'theme', 'pour'];
 
@@ -50,7 +50,7 @@ export function CollectionScreen() {
   return (
     <View style={[styles.root, { paddingTop: insets.top + 8 }]}>
       <View style={styles.top}>
-        <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Back" style={styles.back}>
+        <Pressable onPress={goBack} accessibilityRole="button" accessibilityLabel="Back" style={styles.back}>
           <Icon name="back" size={24} />
         </Pressable>
         <Text maxFontSizeMultiplier={1.3} style={styles.title} accessibilityRole="header">COLLECTION</Text>

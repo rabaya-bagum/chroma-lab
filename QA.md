@@ -103,3 +103,8 @@ For frame rate, audio, splash, persistence and other hardware-only checks see `d
 - [ ] Levels 80 and 81 have a glowing catalyst tube; level 80 shows the reactor meter.
 - [ ] Rules briefing opens on first play of each; the RULES button works after.
 - [ ] Levels 77-85 are completable and feel harder than chapter 7; report any that feel samey.
+
+## Back button
+
+- [ ] On a device, open Collection, Laboratory, Settings, Level Select and Daily normally and press Back: returns to the previous screen.
+- [ ] Reload the app (shake > Reload) while on each of those screens and press Back: lands on Home, no red error toast.

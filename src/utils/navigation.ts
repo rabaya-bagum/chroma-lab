@@ -15,7 +15,14 @@ export function resumeSession(session: Session): void {
   router.push({ pathname: '/game/[levelId]', params: { levelId: session.level.id } });
 }
 
-/** Leave the game screen, always landing somewhere sensible. */
-export function leaveGame(): void {
+/**
+ * Go back one screen, or to Home when there is nothing to go back to (the app
+ * was reloaded or deep-linked onto this screen). A bare `router.back()` raises
+ * "The action 'GO_BACK' was not handled" in that case.
+ */
+export function goBack(): void {
   if (router.canGoBack()) router.back(); else router.replace('/');
 }
+
+/** Leave the game screen, always landing somewhere sensible. */
+export const leaveGame = goBack;

@@ -40,11 +40,11 @@ export interface MechSpec {
 
 const COLORS: LiquidColor[] = ['red', 'blue', 'green', 'yellow', 'purple', 'orange'];
 /** A late backup condition so a catalyst effect is a real shortcut, not the only way. */
-const BACKUP: Condition = { type: 'movesMade', count: 40 };
+export const BACKUP: Condition = { type: 'movesMade', count: 40 };
 
-const pick = <T,>(rng: Rng, items: T[]): T => items[rng.int(items.length)];
+export const pick = <T,>(rng: Rng, items: T[]): T => items[rng.int(items.length)];
 
-function condition(rng: Rng, kind: CondKind, avoid: LiquidColor[], colors: LiquidColor[]): Condition {
+export function condition(rng: Rng, kind: CondKind, avoid: LiquidColor[], colors: LiquidColor[]): Condition {
   if (kind === 'moves') return { type: 'movesMade', count: 3 + rng.int(5) };
   if (kind === 'tubes') return { type: 'tubesCompleted', count: 1 + rng.int(2) };
   const options = colors.filter((c) => !avoid.includes(c));

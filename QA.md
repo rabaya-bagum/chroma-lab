@@ -74,3 +74,11 @@ For frame rate, audio, splash, persistence and other hardware-only checks see `d
 - [ ] Levels 56-65 are all completable; 60 shows the reactor meter; 62 and 64 mix with hidden layers; 65 has a locked tube.
 - [ ] The daily experiment never offers mixing.
 - [ ] A mixing pour blends the dropped colour and the unit it lands on into the new colour while pouring; Undo reverses it; patterns/labels switch at the halfway point; Reduce Motion shows a short slide with the same blend.
+
+## Chapter 7
+
+- [ ] Chapter 7 appears in Level Select (66-75) and unlocks after level 65.
+- [ ] Levels 66, 67, 70, 71, 75 show frost that thaws on its condition while mixing still works; mixing into a frozen top is refused.
+- [ ] Levels 72-75: a mystery layer revealed by a mix-pour shows its true colour; mixing never reveals more than the engine rule (reveal when it becomes the top).
+- [ ] Levels 68, 69, 71, 72: the catalyst tube glows; pouring or mixing its trigger colour (which may be a mix result) fires the arc and unlocks, thaws or reveals the target.
+- [ ] Level 70 shows the reactor meter. Level 75 fits on a small phone with the rules text and recipes visible.

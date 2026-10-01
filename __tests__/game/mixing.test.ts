@@ -141,6 +141,7 @@ describe('chapter 6', () => {
   const { needsMixing } = jest.requireActual('../../src/game/mixGenerator') as typeof import('../../src/game/mixGenerator');
   const { levelCanonicalKey } = jest.requireActual('../../src/game/canonical') as typeof import('../../src/game/canonical');
   const chapter6 = LEVELS.filter((l) => l.chapter === 6);
+  const chapter7 = LEVELS.filter((l) => l.chapter === 7);
 
   it('has levels 56-65, all with mixing rules', () => {
     expect(chapter6.map((l) => l.number)).toEqual([56, 57, 58, 59, 60, 61, 62, 63, 64, 65]);
@@ -148,7 +149,18 @@ describe('chapter 6', () => {
     expect(chapter6[0].tutorial).toBe('mixing');
   });
 
-  it.each(chapter6.map((l) => [l.id, l] as const))('%s cannot be solved with mixing off', (_id, level) => {
+  it('chapter 7 has levels 66-75 and combines mixing with the other mechanics', () => {
+    const { hasMechanics: has } = jest.requireActual('../../src/game/mechSolver') as typeof import('../../src/game/mechSolver');
+    expect(chapter7.map((l) => l.number)).toEqual([66, 67, 68, 69, 70, 71, 72, 73, 74, 75]);
+    expect(chapter7.every((l) => (l.rules?.mixing?.pairs.length ?? 0) > 0 && has(l))).toBe(true);
+    const uses = (f: (l: Level) => boolean) => chapter7.some(f);
+    expect(uses((l) => l.tubes.some((t) => t.liquids.some((x) => x.frozen)))).toBe(true);
+    expect(uses((l) => l.tubes.some((t) => t.liquids.some((x) => x.hidden)))).toBe(true);
+    expect(uses((l) => l.tubes.some((t) => t.lock))).toBe(true);
+    expect(uses((l) => l.tubes.some((t) => t.catalyst))).toBe(true);
+  });
+
+  it.each([...chapter6, ...chapter7].map((l) => [l.id, l] as const))('%s cannot be solved with mixing off', (_id, level) => {
     expect(needsMixing(level)).toBe(true);
     // belt and braces: the real solver agrees on the board with the recipe removed
     const off = { ...level, rules: undefined } as Level;
@@ -177,5 +189,25 @@ describe('solver entry points', () => {
     const state = createInitialState(level);
     expect(createSearch(state, 1, 1000)).toBeNull();
     expect(createSearch(state, 1, 1000, level)).not.toBeNull();
+  });
+});
+
+describe('chapter 7 catalysts', () => {
+  it('every catalyst level has the catalyst in its optimal line', () => {
+    const { LEVELS } = jest.requireActual('../../src/data/levels') as typeof import('../../src/data/levels');
+    const withCatalyst = LEVELS.filter((l) => l.chapter === 7 && l.tubes.some((t) => t.catalyst));
+    expect(withCatalyst.length).toBeGreaterThanOrEqual(4);
+    for (const level of withCatalyst) {
+      const res = solveLevel(level);
+      expect(res.exact).toBe(true);
+      let s = createSession(level);
+      let fired = false;
+      for (const m of res.solution!) {
+        const r = applyMove(s, m);
+        fired = fired || r.events.some((e) => e.type === 'catalystActivated');
+        s = r.session;
+      }
+      expect(fired).toBe(true);
+    }
   });
 });

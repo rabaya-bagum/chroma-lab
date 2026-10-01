@@ -126,7 +126,8 @@ export const MECH_SPECS: MechSpec[] = rows.map(([number, recipe, [optMin, optMax
  * solves of random deals. The daily puzzle never mixes.
  */
 const mixReactor = { slack: 4, bonusCoins: 50 } as const;
-const MIX_ROWS: Omit<MixSpec, 'chapter'>[] = [
+type MixRow = Omit<MixSpec, 'chapter'>;
+const MIX_ROWS: MixRow[] = [
   { number: 56, difficulty: 'hard', tutorial: 'mixing', recipe: { counts: { R: 2, B: 2, C: 4, M: 4 }, pairs: ['violet'], empties: 2 }, optMin: 7, optMax: 9 },
   { number: 57, difficulty: 'hard', recipe: { counts: { R: 2, B: 2, C: 4, M: 4, G: 4 }, pairs: ['violet'], empties: 2 }, optMin: 11, optMax: 12 },
   { number: 58, difficulty: 'hard', recipe: { counts: { R: 3, B: 3, V: 2, C: 4, M: 4 }, pairs: ['violet'], empties: 2 }, optMin: 12, optMax: 13 },
@@ -139,5 +140,29 @@ const MIX_ROWS: Omit<MixSpec, 'chapter'>[] = [
   { number: 65, difficulty: 'expert', recipe: { counts: { R: 3, B: 3, Y: 2, G: 2, O: 2, C: 4, M: 4 }, pairs: ['violet', 'green', 'orange'], empties: 1, locked: true }, optMin: 16, optMax: 18 },
 ];
 
+/**
+ * Levels 66-75, chapter 7 Full Spectrum: mixing together with frozen, mystery and
+ * locked tubes and catalysts. A catalyst can be triggered by a colour that only
+ * exists after a mix, and a catalyst level only qualifies if its best line uses it.
+ */
+const ALL_PAIRS: MixRow['recipe']['pairs'] = ['violet', 'green', 'orange'];
+const BIG = { R: 3, B: 3, Y: 2, G: 2, O: 2, C: 4, M: 4 };
+const CH7_ROWS: MixRow[] = [
+  { number: 66, difficulty: 'expert', recipe: { counts: { R: 2, B: 4, Y: 2, C: 4 }, pairs: ['violet', 'green'], empties: 2, frozen: { tubes: 1, layers: 2, cond: 'tubes' } }, optMin: 10, optMax: 11 },
+  { number: 67, difficulty: 'expert', recipe: { counts: { R: 2, B: 2, C: 4, M: 4, G: 4 }, pairs: ['violet'], empties: 2, frozen: { tubes: 1, layers: 1, cond: 'moves' } }, optMin: 12, optMax: 13 },
+  { number: 68, difficulty: 'expert', recipe: { counts: { R: 2, Y: 4, B: 2, O: 4, C: 4 }, pairs: ['orange', 'green'], empties: 1, locked: true, catalyst: { effect: 'unlock' } }, optMin: 12, optMax: 14 },
+  { number: 69, difficulty: 'expert', recipe: { counts: { R: 4, B: 2, Y: 2, C: 4, M: 4 }, pairs: ALL_PAIRS, empties: 1, locked: true, catalyst: { effect: 'unlock' } }, optMin: 13, optMax: 15 },
+  { number: 70, difficulty: 'expert', recipe: { counts: BIG, pairs: ALL_PAIRS, empties: 2, frozen: { tubes: 1, layers: 1, cond: 'moves' }, reactor: mixReactor }, optMin: 16, optMax: 18 },
+  { number: 71, difficulty: 'expert', recipe: { counts: { R: 4, B: 2, Y: 2, C: 4, M: 4 }, pairs: ALL_PAIRS, empties: 2, frozen: { tubes: 1, layers: 2, cond: 'moves' }, catalyst: { effect: 'thaw' } }, optMin: 13, optMax: 15 },
+  { number: 72, difficulty: 'expert', recipe: { counts: { R: 2, B: 2, C: 4, M: 4, G: 4 }, pairs: ['violet'], empties: 2, hidden: { tubes: 3 }, catalyst: { effect: 'reveal' } }, optMin: 14, optMax: 15 },
+  { number: 73, difficulty: 'expert', recipe: { counts: BIG, pairs: ALL_PAIRS, empties: 2, hidden: { tubes: 'all' } }, optMin: 17, optMax: 18 },
+  { number: 74, difficulty: 'expert', recipe: { counts: BIG, pairs: ALL_PAIRS, empties: 1, hidden: { tubes: 3 }, locked: true }, optMin: 17, optMax: 19 },
+  { number: 75, difficulty: 'expert', recipe: { counts: BIG, pairs: ALL_PAIRS, empties: 1, hidden: { tubes: 2 }, frozen: { tubes: 1, layers: 1, cond: 'tubes' }, locked: true }, optMin: 18, optMax: 19 },
+];
+
 export const MIX_CHAPTER = 6;
-export const MIX_SPECS: MixSpec[] = MIX_ROWS.map((r) => ({ ...r, chapter: MIX_CHAPTER }));
+export const MIXED_CHAPTER = 7;
+export const MIX_SPECS: MixSpec[] = [
+  ...MIX_ROWS.map((r) => ({ ...r, chapter: MIX_CHAPTER })),
+  ...CH7_ROWS.map((r) => ({ ...r, chapter: MIXED_CHAPTER })),
+];

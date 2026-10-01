@@ -5,7 +5,7 @@ import { COLOR_NAMES } from '../config/theme';
 import { extraTubeCost, hintCost } from '../config/economy';
 import { GameBoard } from '../components/GameBoard';
 import { GameControls } from '../components/GameControls';
-import { MechanicsNote } from '../components/MechanicsNote';
+import { RulesPanel } from '../components/RulesPanel';
 import { RecipeLegend } from '../components/RecipeLegend';
 import { ReactorMeter } from '../components/ReactorMeter';
 import { TopBar } from '../components/TopBar';
@@ -14,6 +14,7 @@ import { DailyWinOverlay, WinOverlay } from '../components/WinOverlay';
 import { COSMETIC_BY_ID } from '../data/cosmetics';
 import { LAB_EQUIPMENT } from '../data/labEquipment';
 import { findHint } from '../game/hints';
+import { shouldAutoOpenRules } from '../game/mechanicsText';
 import { isMixPour } from '../game/mixing';
 import { isPuzzleSolved } from '../game/rules';
 import { calculateStars } from '../game/scoring';
@@ -78,6 +79,13 @@ export function GameScreen({ level, forceTutorial, onExit, onNext }: Props) {
   const [mixStep, setMixStep] = useState<MixTutorialStep>(() =>
     mixTutorialEligible && (useGameStore.getState().session?.current.moves ?? 0) === 0 ? 0 : 3);
   const mixTutorialActive = mixStep < 3;
+
+  // special rules open as a briefing on the first play of a level; otherwise behind the RULES button
+  const [rulesOpenAtStart] = useState(() => shouldAutoOpenRules(
+    level,
+    useProgressStore.getState().save.progress.levels[level.id]?.completions ?? 0,
+    useGameStore.getState().session?.current.moves ?? 0,
+  ));
 
   const solved = !!session && isPuzzleSolved(session.current);
 
@@ -263,8 +271,8 @@ export function GameScreen({ level, forceTutorial, onExit, onNext }: Props) {
       />
 
       <ReactorMeter level={level} moves={moves} />
-      <MechanicsNote level={level} />
       <RecipeLegend level={level} />
+      <RulesPanel level={level} initiallyOpen={rulesOpenAtStart} />
 
       {tutorialActive && <TutorialOverlay step={tutStep} canSkip={tutorialDoneAtStart} onSkip={() => setTutStep(4)} />}
       {mixTutorialActive && <TutorialOverlay kind="mixing" step={mixStep} canSkip onSkip={() => setMixStep(3)} />}

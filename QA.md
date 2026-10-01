@@ -82,3 +82,10 @@ For frame rate, audio, splash, persistence and other hardware-only checks see `d
 - [ ] Levels 72-75: a mystery layer revealed by a mix-pour shows its true colour; mixing never reveals more than the engine rule (reveal when it becomes the top).
 - [ ] Levels 68, 69, 71, 72: the catalyst tube glows; pouring or mixing its trigger colour (which may be a mix result) fires the arc and unlocks, thaws or reveals the target.
 - [ ] Level 70 shows the reactor meter. Level 75 fits on a small phone with the rules text and recipes visible.
+
+## Rules panel
+
+- [ ] First play of level 26, 36, 46 and 75 opens the rules card over the board; GOT IT or the button closes it; the board is fully tappable afterwards.
+- [ ] After completing a level, replaying it shows only the `RULES (n)` button. Classic levels show no button.
+- [ ] Levels 1 and 56 do not open the card (their tutorials explain the rules).
+- [ ] Screen reader: the button announces expanded/collapsed and the card reads all rules.

@@ -1,4 +1,4 @@
-import { router, useFocusEffect } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,7 +10,7 @@ import { audio } from '../services/audio';
 import { useDailyStore } from '../store/dailyStore';
 import { useProgressStore } from '../store/progressStore';
 import { addDays, localDateKey } from '../utils/date';
-import { playLevel } from '../utils/navigation';
+import { goBack, playLevel } from '../utils/navigation';
 
 const fmtTime = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
 const prettyDate = (key: string) => {
@@ -52,7 +52,7 @@ export function DailyExperimentScreen() {
   return (
     <View style={[styles.root, { paddingTop: insets.top + 8 }]}>
       <View style={styles.top}>
-        <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Back" style={styles.back}>
+        <Pressable onPress={goBack} accessibilityRole="button" accessibilityLabel="Back" style={styles.back}>
           <Icon name="back" size={24} />
         </Pressable>
         <Text maxFontSizeMultiplier={1.3} style={styles.title} accessibilityRole="header">DAILY EXPERIMENT</Text>

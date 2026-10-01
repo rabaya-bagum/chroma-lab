@@ -1,4 +1,3 @@
-import { router } from 'expo-router';
 import React from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,7 +11,7 @@ import { persistence } from '../services/persistence';
 import { useProgressStore } from '../store/progressStore';
 import { useSettingsStore } from '../store/settingsStore';
 import type { ReduceMotionSetting, Settings } from '../store/settingsStore';
-import { playLevel } from '../utils/navigation';
+import { goBack, playLevel } from '../utils/navigation';
 
 type BoolKey = 'music' | 'sound' | 'haptics' | 'colorBlind' | 'patterns' | 'labels' | 'highContrast';
 const ROWS: { key: BoolKey; label: string }[] = [
@@ -59,7 +58,7 @@ export function SettingsScreen() {
   return (
     <View style={[styles.root, { paddingTop: insets.top + 8 }]}>
       <View style={styles.top}>
-        <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Back" style={styles.back}>
+        <Pressable onPress={goBack} accessibilityRole="button" accessibilityLabel="Back" style={styles.back}>
           <Icon name="back" size={24} />
         </Pressable>
         <Text maxFontSizeMultiplier={1.3} style={styles.title} accessibilityRole="header">SETTINGS</Text>

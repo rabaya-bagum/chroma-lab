@@ -1,4 +1,3 @@
-import { router } from 'expo-router';
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,6 +8,7 @@ import { labLevelFor } from '../config/economy';
 import { LAB_EQUIPMENT } from '../data/labEquipment';
 import { LabScene } from '../render/LabScene';
 import { useProgressStore } from '../store/progressStore';
+import { goBack } from '../utils/navigation';
 
 export function LaboratoryScreen() {
   const insets = useSafeAreaInsets();
@@ -21,7 +21,7 @@ export function LaboratoryScreen() {
   return (
     <View style={[styles.root, { paddingTop: insets.top + 8 }]}>
       <View style={styles.top}>
-        <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Back" style={styles.back}>
+        <Pressable onPress={goBack} accessibilityRole="button" accessibilityLabel="Back" style={styles.back}>
           <Icon name="back" size={24} />
         </Pressable>
         <Text maxFontSizeMultiplier={1.3} style={styles.title} accessibilityRole="header">LABORATORY</Text>

@@ -1,3 +1,4 @@
+import { isMixPour, mixResult } from './mixing';
 import type { GameState, LiquidLayer, Move, MoveError, TubeState } from './types';
 
 function tubeAt(state: GameState, index: number): TubeState {
@@ -33,7 +34,7 @@ export function getMoveError(state: GameState, from: number, to: number): MoveEr
   const bTop = top(b);
   if (bTop) {
     if (bTop.frozen) return 'destFrozenTop';
-    if (bTop.color !== aTop.color) return 'colorMismatch';
+    if (bTop.color !== aTop.color && !mixResult(state.mix, aTop.color, bTop.color)) return 'colorMismatch';
   }
   return null;
 }
@@ -60,6 +61,7 @@ export function getPourAmount(state: GameState, from: number, to: number): numbe
   if (getMoveError(state, from, to) !== null) return 0;
   const a = state.tubes[from];
   const b = state.tubes[to];
+  if (isMixPour(state, from, to)) return 1;
   return Math.min(topRunLength(a), b.capacity - b.liquids.length);
 }
 
@@ -70,6 +72,7 @@ export function getPourAmount(state: GameState, from: number, to: number): numbe
 export function isPointlessMove(state: GameState, from: number, to: number): boolean {
   const a = state.tubes[from];
   const b = state.tubes[to];
+  if (isMixPour(state, from, to)) return false;
   return b.liquids.length === 0 && topRunLength(a) === a.liquids.length;
 }
 

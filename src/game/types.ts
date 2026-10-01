@@ -31,6 +31,13 @@ export interface TubeDef {
   catalyst?: { triggerColor: LiquidColor; effect: CatalystEffect };
 }
 
+// §11.6 colour mixing: pouring `a` onto `b` (either order) makes `result`.
+export interface MixPair {
+  a: LiquidColor;
+  b: LiquidColor;
+  result: LiquidColor;
+}
+
 export type Difficulty = 'easy' | 'medium' | 'hard' | 'expert';
 
 export interface Level {
@@ -41,10 +48,10 @@ export interface Level {
   tubes: TubeDef[];
   optimalMoves: number;
   optimalIsExact: boolean;   // true = proven by exhaustive search
-  tutorial?: 'basics';
+  tutorial?: 'basics' | 'mixing';
   rules?: {
     reactor?: { moveLimit: number; bonusCoins: number };  // §11.5
-    // mixing: reserved, see §11.6
+    mixing?: { pairs: MixPair[] };                        // §11.6, opt-in per level
   };
   meta: { generatorVersion: string; seed: string };      // 'handcrafted' for authored
 }
@@ -64,12 +71,14 @@ export interface GameState {
   levelId: string;
   tubes: TubeState[];
   moves: number;
+  mix?: MixPair[];           // enabled mixing pairs (copied from the level)
 }
 
 export interface Move { from: number; to: number } // tube indices
 
 export type GameEvent =
   | { type: 'poured'; from: number; to: number; color: LiquidColor; amount: number }
+  | { type: 'mixed'; from: number; to: number; poured: LiquidColor; with: LiquidColor; result: LiquidColor }
   | { type: 'tubeCompleted'; tube: number; color: LiquidColor }
   | { type: 'revealed'; tube: number; layerIndex: number; color: LiquidColor }
   | { type: 'thawed'; tube: number }

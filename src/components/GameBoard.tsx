@@ -25,10 +25,14 @@ import {
 } from '../render/particles';
 import type { Plan } from '../render/plan';
 import { chooseSide, pourTarget, pourTimeline } from '../render/pourGeometry';
+import { burstCount, createQualityState, idlePhasePeriod, qualityStep, QUALITY_LITE } from '../render/quality';
 import { useSettingsStore, effectivePatterns, effectiveReduceMotion } from '../store/settingsStore';
+import { features } from '../config/features';
 import { computeLayout } from '../utils/layout';
 import type { BoardLayout } from '../utils/layout';
 import { HintRings } from './HintRings';
+import { PerfOverlay } from './PerfOverlay';
+import type { PerfStats } from './PerfOverlay';
 import { TubeHit } from './Tube';
 
 export interface BoardCallbacks {
@@ -114,6 +118,10 @@ export function GameBoard(props: Props) {
   const catT = useSharedValue(1);
   const catGeom = useSharedValue<number[]>([0, 0, 0, 0, 0]);
   const particles = useSharedValue<number[]>(createParticleState());
+  const quality = useSharedValue<number[]>(createQualityState());
+  const phaseAcc = useSharedValue(0);
+  const perfAcc = useSharedValue<number[]>([0, 0, 0]); // frames, worst frame ms, ms
+  const [perf, setPerf] = useState<PerfStats | null>(null);
   const anim = useMemo<BoardAnim>(() => ({ plan, clock, phase }), [plan, clock, phase]);
 
   const layout: BoardLayout = useMemo(
@@ -146,14 +154,32 @@ export function GameBoard(props: Props) {
     props.onBusyChange?.(b);
   }, [props]);
 
+  const reportPerf = useCallback((fps: number, worstMs: number, tier: number) => setPerf({ fps, worstMs, tier }), []);
+
   useFrameCallback((info) => {
-    const dt = Math.min(0.05, (info.timeSincePreviousFrame ?? 16) / 1000);
-    if (!reduce) phase.value += dt;
+    const frameMs = info.timeSincePreviousFrame ?? 16;
+    const dt = Math.min(0.05, frameMs / 1000);
+    const tier = qualityStep(quality.value, frameMs);
+    if (!reduce) {
+      // the idle shimmer slows down on the light tier; pours always run at full rate
+      phaseAcc.value += dt;
+      const period = idlePhasePeriod(tier);
+      if (plan.value !== null || phaseAcc.value >= period) { phase.value += phaseAcc.value; phaseAcc.value = 0; }
+    }
     if (particles.value[0] > 0) particles.modify((a) => { 'worklet'; step(a, dt); return a; });
+    if (features.perfOverlay) {
+      const s = perfAcc.value;
+      s[0] += 1; s[2] += frameMs; if (frameMs > s[1]) s[1] = frameMs;
+      if (s[2] >= 500) {
+        scheduleOnRN(reportPerf, (s[0] * 1000) / s[2], s[1], tier);
+        perfAcc.value = [0, 0, 0];
+      }
+    }
   });
 
-  const burst = useCallback((x: number, y: number, n: number, kind: number, spread = 1) => {
+  const burst = useCallback((x: number, y: number, count: number, kind: number, spread = 1) => {
     if (reduce) return;
+    const n = burstCount(count, quality.value[1]);
     particles.modify((a) => {
       'worklet';
       for (let i = 0; i < n; i++) {
@@ -165,13 +191,13 @@ export function GameBoard(props: Props) {
       }
       return a;
     });
-  }, [particles, reduce]);
+  }, [particles, quality, reduce]);
 
   // ambient bubbles rising inside random tubes
   useEffect(() => {
     if (reduce) return;
     const id = setInterval(() => {
-      if (busy.current) return;
+      if (busy.current || quality.value[1] === QUALITY_LITE) return; // ambient bubbles are the first thing to go
       const l = layoutRef.current;
       const filled = shownRef.current.tubes.map((t, i) => (t.liquids.length > 0 ? i : -1)).filter((i) => i >= 0);
       if (filled.length === 0 || l.positions.length === 0) return;
@@ -182,7 +208,7 @@ export function GameBoard(props: Props) {
       burst(pos.x + l.tubeW * (0.3 + Math.random() * 0.4), pos.y + l.tubeH - TUBE_PAD - Math.random() * top * 0.5, 1, KIND_BUBBLE);
     }, 1500);
     return () => clearInterval(id);
-  }, [reduce, burst]);
+  }, [reduce, burst, quality]);
 
   const winSequence = useCallback((state: GameState) => {
     const l = layoutRef.current;
@@ -463,6 +489,7 @@ export function GameBoard(props: Props) {
               </View>
             ) : null
           ))}
+          {features.perfOverlay && perf && <PerfOverlay stats={perf} />}
           {props.highlight && props.highlight.length > 0 && <HintRings cells={layout.cells} tubes={props.highlight} />}
           {shown.tubes.map((t, i) => (
             layout.cells[i] ? (

@@ -198,9 +198,17 @@ export const TubeCanvas = React.memo(function TubeCanvas(p: TubeCanvasProps) {
   ]);
 
   // --- liquid -----------------------------------------------------------------
+  // Progress of the running plan as seen by this tube. A tube that is neither
+  // source nor destination always reads 0, so while others pour its liquid is
+  // not recomputed on every frame (a number only notifies dependants when it changes).
+  const involvedProgress = useDerivedValue(() => {
+    const pl = anim.plan.value;
+    if (!pl || (pl.from !== index && pl.to !== index)) return 0;
+    return planProgress(pl, anim.clock.value);
+  });
   const slots = useDerivedValue<SlotView[]>(() => {
     const pl = anim.plan.value;
-    const prog = pl ? planProgress(pl, anim.clock.value) : 0;
+    const prog = involvedProgress.value;
     const out: SlotView[] = [];
     let used = 0;
     for (let k = 0; k < cap; k++) {

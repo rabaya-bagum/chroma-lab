@@ -8,7 +8,7 @@ Minimum: one low-end Android phone (about 3 GB RAM, 2019-2021 class), one recent
 
 ## 1. Frame rate (target 60 FPS)
 
-How to measure: shake to open the dev menu and enable **Show Perf Monitor** (development build), or use Android's *Profile GPU rendering* / `adb shell dumpsys gfxinfo <package> framestats`. Read the UI and JS frame rates.
+How to measure: the `preview` EAS profile builds with the on-screen frame-rate overlay (`EXPO_PUBLIC_PERF_OVERLAY=1`; top-left of the board: fps over the last half second, worst frame, and `FULL`/`LITE`). If a board reports `LITE` on a phone that should manage 60 fps, note the device and level: that is the adaptive quality governor reacting to real frame times. Otherwise shake to open the dev menu and enable **Show Perf Monitor** (development build), or use Android's *Profile GPU rendering* / `adb shell dumpsys gfxinfo <package> framestats`. Read the UI and JS frame rates.
 
 | Scenario | Pass |
 |---|---|
@@ -18,7 +18,7 @@ How to measure: shake to open the dev menu and enable **Show Perf Monitor** (dev
 | Win flourish with 9 tubes plus particles (<= 120) | >= 45 FPS |
 | Level Select scrolling, Collection and Laboratory screens | no visible jank |
 
-Fail action: note device, level and cosmetic. The usual levers are the particle cap (`src/render/particles.ts`), the ambient bubble interval in `GameBoard.tsx`, and `reduceMotion`.
+Also record whether the overlay ever switched to `LITE` during the run and when (it steps down after about 2 s below ~41 fps, and back up after 15 s above ~55 fps, at most once). Fail action: note device, level and cosmetic. The usual levers are the particle cap (`src/render/particles.ts`), the ambient bubble interval in `GameBoard.tsx`, and `reduceMotion`.
 
 ## 2. Hint latency
 

@@ -1,5 +1,6 @@
 import type { Difficulty, LiquidColor } from './types';
 import type { MechSpec, Recipe } from './mechGenerator';
+import type { MixSpec } from './mixGenerator';
 import type { LevelSpec } from './generator';
 
 const C: LiquidColor[] = ['red', 'blue', 'green', 'yellow', 'purple', 'orange', 'cyan', 'pink'];
@@ -117,3 +118,26 @@ export const MECH_SPECS: MechSpec[] = rows.map(([number, recipe, [optMin, optMax
   optMin,
   optMax,
 }));
+
+/**
+ * Levels 56-65, chapter 6 Chromatic Synthesis (section 11.6). Each recipe lists
+ * unit counts per colour that are not multiples of four, so the level cannot be
+ * solved without mixing; the generator proves it. Windows are tuned from exact
+ * solves of random deals. The daily puzzle never mixes.
+ */
+const mixReactor = { slack: 4, bonusCoins: 50 } as const;
+const MIX_ROWS: Omit<MixSpec, 'chapter'>[] = [
+  { number: 56, difficulty: 'hard', tutorial: 'mixing', recipe: { counts: { R: 2, B: 2, C: 4, M: 4 }, pairs: ['violet'], empties: 2 }, optMin: 7, optMax: 9 },
+  { number: 57, difficulty: 'hard', recipe: { counts: { R: 2, B: 2, C: 4, M: 4, G: 4 }, pairs: ['violet'], empties: 2 }, optMin: 11, optMax: 12 },
+  { number: 58, difficulty: 'hard', recipe: { counts: { R: 3, B: 3, V: 2, C: 4, M: 4 }, pairs: ['violet'], empties: 2 }, optMin: 12, optMax: 13 },
+  { number: 59, difficulty: 'hard', recipe: { counts: { R: 2, B: 4, Y: 2, C: 4 }, pairs: ['violet', 'green'], empties: 2 }, optMin: 10, optMax: 11 },
+  { number: 60, difficulty: 'hard', recipe: { counts: { R: 2, Y: 4, B: 2, O: 4, C: 4 }, pairs: ['orange', 'green'], empties: 2, reactor: mixReactor }, optMin: 12, optMax: 13 },
+  { number: 61, difficulty: 'hard', recipe: { counts: { R: 3, B: 3, Y: 2, G: 2, O: 2, C: 4, M: 4 }, pairs: ['violet', 'green', 'orange'], empties: 2 }, optMin: 14, optMax: 16 },
+  { number: 62, difficulty: 'expert', recipe: { counts: { R: 3, B: 3, Y: 2, G: 2, O: 2, C: 4, M: 4 }, pairs: ['violet', 'green', 'orange'], empties: 2, hidden: { tubes: 3 } }, optMin: 16, optMax: 17 },
+  { number: 63, difficulty: 'expert', recipe: { counts: { R: 4, B: 2, Y: 2, C: 4, M: 4 }, pairs: ['violet', 'green', 'orange'], empties: 2 }, optMin: 13, optMax: 14 },
+  { number: 64, difficulty: 'expert', recipe: { counts: { R: 2, B: 2, C: 4, M: 4, G: 4 }, pairs: ['violet'], empties: 2, hidden: { tubes: 'all' } }, optMin: 14, optMax: 15 },
+  { number: 65, difficulty: 'expert', recipe: { counts: { R: 3, B: 3, Y: 2, G: 2, O: 2, C: 4, M: 4 }, pairs: ['violet', 'green', 'orange'], empties: 1, locked: true }, optMin: 16, optMax: 18 },
+];
+
+export const MIX_CHAPTER = 6;
+export const MIX_SPECS: MixSpec[] = MIX_ROWS.map((r) => ({ ...r, chapter: MIX_CHAPTER }));

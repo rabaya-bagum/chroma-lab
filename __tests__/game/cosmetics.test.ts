@@ -96,7 +96,7 @@ describe('laboratory', () => {
     ]);
     const maxStars = LEVELS.length * 3;
     expect(LAB_EQUIPMENT.filter((e) => e.mvp).every((e) => e.stars <= maxStars)).toBe(true);
-    expect(LAB_EQUIPMENT.filter((e) => !e.mvp).map((e) => e.id)).toEqual(['hologram']);
+    expect(LAB_EQUIPMENT.filter((e) => !e.mvp)).toEqual([]);
   });
   it('earnedEquipment follows the star total', () => {
     expect(earnedEquipment(9)).toEqual([]);

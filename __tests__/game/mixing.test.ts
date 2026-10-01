@@ -5,6 +5,7 @@ import { getMoveError } from '../../src/game/rules';
 import { applyMove, createInitialState, createSession, undoMove } from '../../src/game/session';
 import { deserializeSession, serializeSession } from '../../src/game/serialize';
 import type { Level } from '../../src/game/types';
+import { solveLevel } from '../../src/game/solver';
 
 const ALL = [RBY_PAIRS.violet, RBY_PAIRS.green, RBY_PAIRS.orange];
 
@@ -132,5 +133,39 @@ describe('solving mixing levels', () => {
       checked++;
     }
     expect(checked).toBeGreaterThan(5);
+  });
+});
+
+describe('chapter 6', () => {
+  const { LEVELS } = jest.requireActual('../../src/data/levels') as typeof import('../../src/data/levels');
+  const { needsMixing } = jest.requireActual('../../src/game/mixGenerator') as typeof import('../../src/game/mixGenerator');
+  const { levelCanonicalKey } = jest.requireActual('../../src/game/canonical') as typeof import('../../src/game/canonical');
+  const chapter6 = LEVELS.filter((l) => l.chapter === 6);
+
+  it('has levels 56-65, all with mixing rules', () => {
+    expect(chapter6.map((l) => l.number)).toEqual([56, 57, 58, 59, 60, 61, 62, 63, 64, 65]);
+    expect(chapter6.every((l) => (l.rules?.mixing?.pairs.length ?? 0) > 0)).toBe(true);
+    expect(chapter6[0].tutorial).toBe('mixing');
+  });
+
+  it.each(chapter6.map((l) => [l.id, l] as const))('%s cannot be solved with mixing off', (_id, level) => {
+    expect(needsMixing(level)).toBe(true);
+    // belt and braces: the real solver agrees on the board with the recipe removed
+    const off = { ...level, rules: undefined } as Level;
+    expect(solveLevel(off, { maxNodes: 200_000, fallbackNodes: 0 }).solvable).not.toBe(true);
+  });
+
+  it('keeps recipe colours distinct in the canonical key', () => {
+    const a = mixLevel(['RB', 'BB'], [RBY_PAIRS.violet]);
+    const b = mixLevel(['YB', 'BB'], [RBY_PAIRS.green]);
+    expect(levelCanonicalKey(a)).not.toBe(levelCanonicalKey(b));
+  });
+
+  it('the daily puzzle never mixes', () => {
+    const { generateDaily } = jest.requireActual('../../src/game/daily') as typeof import('../../src/game/daily');
+    const level = generateDaily('2026-10-01');
+    expect(level).not.toBeNull();
+    expect(level!.rules?.mixing).toBeUndefined();
+    expect(needsMixing(level!)).toBe(false);
   });
 });

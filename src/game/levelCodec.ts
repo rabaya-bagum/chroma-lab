@@ -43,7 +43,7 @@ export interface CompactLevel {
   difficulty: Difficulty;
   optimalMoves: number;
   optimalIsExact: boolean;
-  tutorial?: 'basics';
+  tutorial?: Level['tutorial'];
   tubes: CompactTube[];
   rules?: Level['rules'];
   meta: { generatorVersion: string; seed: string };

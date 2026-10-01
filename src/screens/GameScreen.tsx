@@ -6,6 +6,7 @@ import { extraTubeCost, hintCost } from '../config/economy';
 import { GameBoard } from '../components/GameBoard';
 import { GameControls } from '../components/GameControls';
 import { MechanicsNote } from '../components/MechanicsNote';
+import { RecipeLegend } from '../components/RecipeLegend';
 import { ReactorMeter } from '../components/ReactorMeter';
 import { TopBar } from '../components/TopBar';
 import { TutorialOverlay } from '../components/TutorialOverlay';
@@ -13,10 +14,11 @@ import { DailyWinOverlay, WinOverlay } from '../components/WinOverlay';
 import { COSMETIC_BY_ID } from '../data/cosmetics';
 import { LAB_EQUIPMENT } from '../data/labEquipment';
 import { findHint } from '../game/hints';
+import { isMixPour } from '../game/mixing';
 import { isPuzzleSolved } from '../game/rules';
 import { calculateStars } from '../game/scoring';
-import { advanceTutorial, tutorialAllowsTap, tutorialHighlight } from '../game/tutorial';
-import type { TutorialStep } from '../game/tutorial';
+import { advanceMixTutorial, advanceTutorial, tutorialAllowsTap, tutorialHighlight } from '../game/tutorial';
+import type { MixTutorialStep, TutorialStep } from '../game/tutorial';
 import type { Level } from '../game/types';
 import { useCosmetics } from '../render/useCosmetics';
 import { analytics } from '../services/analytics';
@@ -70,6 +72,13 @@ export function GameScreen({ level, forceTutorial, onExit, onNext }: Props) {
     tutorialEligible && (useGameStore.getState().session?.current.moves ?? 0) === 0 ? 0 : 4);
   const tutorialActive = tutStep < 4;
 
+  // the mixing tutorial: first play of the first chapter 6 level, or forced from Settings
+  const [mixTutorialNew] = useState(() => !useProgressStore.getState().save.progress.levels[level.id]?.completions);
+  const mixTutorialEligible = level.tutorial === 'mixing' && (!!forceTutorial || mixTutorialNew);
+  const [mixStep, setMixStep] = useState<MixTutorialStep>(() =>
+    mixTutorialEligible && (useGameStore.getState().session?.current.moves ?? 0) === 0 ? 0 : 3);
+  const mixTutorialActive = mixStep < 3;
+
   const solved = !!session && isPuzzleSolved(session.current);
 
   const clearHint = useCallback(() => {
@@ -121,6 +130,7 @@ export function GameScreen({ level, forceTutorial, onExit, onNext }: Props) {
     const action = store.tap(tube);
     if (!action) return;
     if (tutorialActive && before) setTutStep(advanceTutorial(tutStep, action, before));
+    if (mixTutorialActive) setMixStep(advanceMixTutorial(mixStep, action, useGameStore.getState().lastEvents.some((e) => e.type === 'mixed')));
     switch (action.type) {
       case 'select':
       case 'moveSelection': haptics.trigger('select'); audio.play('glassTap'); break;
@@ -128,10 +138,10 @@ export function GameScreen({ level, forceTutorial, onExit, onNext }: Props) {
       case 'shake': audio.play('invalid'); if (action.warn) haptics.trigger('invalid'); break;
       case 'pour': break; // pour sound and haptic start with the animation
     }
-  }, [tutorialActive, tutStep, clearHint]);
+  }, [tutorialActive, tutStep, mixTutorialActive, mixStep, clearHint]);
 
-  const onMechanic = useCallback((kind: 'reveal' | 'thaw' | 'unlock' | 'catalyst') => {
-    audio.play(kind === 'reveal' ? 'reveal' : kind === 'thaw' ? 'thaw' : 'unlock');
+  const onMechanic = useCallback((kind: 'reveal' | 'thaw' | 'unlock' | 'catalyst' | 'mix') => {
+    audio.play(kind === 'reveal' ? 'reveal' : kind === 'thaw' ? 'thaw' : kind === 'mix' ? 'mix' : 'unlock');
     haptics.trigger(kind === 'catalyst' ? 'tubeComplete' : 'select');
   }, []);
 
@@ -176,7 +186,7 @@ export function GameScreen({ level, forceTutorial, onExit, onNext }: Props) {
   const restart = useCallback(() => {
     const go = () => {
       audio.play('button'); clearHint(); setOverlayVisible(false); setWinPlaying(false);
-      useGameStore.getState().restart(); if (tutorialEligible) setTutStep(0);
+      useGameStore.getState().restart(); if (tutorialEligible) setTutStep(0); if (mixTutorialEligible) setMixStep(0);
     };
     const moves = useGameStore.getState().session?.current.moves ?? 0;
     if (moves >= 5) {
@@ -185,7 +195,7 @@ export function GameScreen({ level, forceTutorial, onExit, onNext }: Props) {
         { text: 'Restart', style: 'destructive', onPress: go },
       ]);
     } else go();
-  }, [tutorialEligible, clearHint]);
+  }, [tutorialEligible, mixTutorialEligible, clearHint]);
 
   const effectiveNumber = level.number; // 0 (daily) uses the paid rates
   const addTube = useCallback(() => {
@@ -229,7 +239,13 @@ export function GameScreen({ level, forceTutorial, onExit, onNext }: Props) {
     setHintTubes([result.move.from]);
     hintTimers.current.push(setTimeout(() => setHintTubes([result.move.from, result.move.to]), HINT_RING_DELAY_MS));
     hintTimers.current.push(setTimeout(() => setHintTubes([]), HINT_VISIBLE_MS));
-    toast({ kind: 'info', title: 'HINT', message: `Try moving ${COLOR_NAMES[result.color].toUpperCase()} here.` });
+    const under = board.tubes[result.move.to].liquids.at(-1);
+    toast({
+      kind: 'info', title: 'HINT',
+      message: isMixPour(board, result.move.from, result.move.to) && under
+        ? `Try mixing ${COLOR_NAMES[result.color].toUpperCase()} into ${COLOR_NAMES[under.color].toUpperCase()}.`
+        : `Try moving ${COLOR_NAMES[result.color].toUpperCase()} here.`,
+    });
   }, [hinting, effectiveNumber, clearHint, level]);
 
   if (!session) return null;
@@ -248,8 +264,10 @@ export function GameScreen({ level, forceTutorial, onExit, onNext }: Props) {
 
       <ReactorMeter level={level} moves={moves} />
       <MechanicsNote level={level} />
+      <RecipeLegend level={level} />
 
       {tutorialActive && <TutorialOverlay step={tutStep} canSkip={tutorialDoneAtStart} onSkip={() => setTutStep(4)} />}
+      {mixTutorialActive && <TutorialOverlay kind="mixing" step={mixStep} canSkip onSkip={() => setMixStep(3)} />}
 
       <View style={styles.board}>
         <GameBoard

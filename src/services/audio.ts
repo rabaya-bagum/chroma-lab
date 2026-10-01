@@ -4,7 +4,7 @@ import { useSettingsStore } from '../store/settingsStore';
 
 export type SoundName =
   | 'pour' | 'glassTap' | 'invalid' | 'tubeComplete' | 'button'
-  | 'win' | 'unlock' | 'coin' | 'reveal' | 'thaw';
+  | 'win' | 'unlock' | 'coin' | 'reveal' | 'thaw' | 'mix';
 
 // Placeholder (silent) files with their final names; see src/assets/sounds/README.md.
 const SOURCES: Record<SoundName, number> = {
@@ -18,6 +18,7 @@ const SOURCES: Record<SoundName, number> = {
   coin: require('../assets/sounds/coin.wav'),
   reveal: require('../assets/sounds/reveal.wav'),
   thaw: require('../assets/sounds/thaw.wav'),
+  mix: require('../assets/sounds/mix.wav'),
 };
 const MUSIC_SOURCE: number = require('../assets/sounds/ambient_lab.wav');
 

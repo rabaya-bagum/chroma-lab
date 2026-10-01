@@ -8,9 +8,10 @@ import {
   Easing, useDerivedValue, useFrameCallback, useSharedValue, withSequence, withTiming,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
-import { LIQUID_HEX, LIQUID_HEX_COLORBLIND } from '../config/theme';
+import { COLOR_NAMES, LIQUID_HEX, LIQUID_HEX_COLORBLIND } from '../config/theme';
 import { describeEvents } from '../game/accessibility';
 import { describeProgress } from '../game/conditions';
+import { isMixPour, mixResult } from '../game/mixing';
 import type { GameEvent, GameState, Level, LiquidColor } from '../game/types';
 import { Particles } from '../render/Particles';
 import { Stream } from '../render/Stream';
@@ -38,7 +39,7 @@ export interface BoardCallbacks {
   onSolved?(): void;
   onBusyChange?(busy: boolean): void;
   /** A section 11 mechanic just played out (reveal, thaw, unlock, catalyst). */
-  onMechanic?(kind: 'reveal' | 'thaw' | 'unlock' | 'catalyst'): void;
+  onMechanic?(kind: 'reveal' | 'thaw' | 'unlock' | 'catalyst' | 'mix'): void;
 }
 
 interface Props extends BoardCallbacks {
@@ -195,13 +196,14 @@ export function GameBoard(props: Props) {
       if (arcTarget >= 0 && !reduce) delays[arcTarget] = CATALYST_ARC_MS;
     }
     setFxDelay(delays);
-    const kinds = new Set<'reveal' | 'thaw' | 'unlock' | 'catalyst'>();
+    const kinds = new Set<'reveal' | 'thaw' | 'unlock' | 'catalyst' | 'mix'>();
     const sparks: { tube: number; at: number }[] = [];
     for (const e of evts) {
       if (e.type === 'revealed') { kinds.add('reveal'); sparks.push({ tube: e.tube, at: delays[e.tube] ?? 0 }); }
       else if (e.type === 'thawed') { kinds.add('thaw'); sparks.push({ tube: e.tube, at: delays[e.tube] ?? 0 }); }
       else if (e.type === 'unlocked') { kinds.add('unlock'); sparks.push({ tube: e.tube, at: delays[e.tube] ?? 0 }); }
       else if (e.type === 'catalystActivated') kinds.add('catalyst');
+      else if (e.type === 'mixed') { kinds.add('mix'); sparks.push({ tube: e.to, at: 0 }); }
     }
     if (cat && !reduce) {
       const a = l.positions[cat.tube], b = arcTarget >= 0 ? l.positions[arcTarget] : null;
@@ -334,6 +336,13 @@ export function GameBoard(props: Props) {
     }),
     [shown, defs],
   );
+  // a tube is selected: show what pouring it onto each other tube would mix
+  const mixPreviews = useMemo(() => shown.tubes.map((t, i) => {
+    if (selected === null || i === selected || !isMixPour(shown, selected, i)) return undefined;
+    const a = shown.tubes[selected], b = t;
+    const result = mixResult(shown.mix, a.liquids[a.liquids.length - 1].color, b.liquids[b.liquids.length - 1].color);
+    return result ?? undefined;
+  }), [shown, selected]);
   const arcPath = useDerivedValue(() => {
     const [x0, y0, x1, y1] = catGeom.value;
     const p = Skia.PathBuilder.Make();
@@ -411,12 +420,20 @@ export function GameBoard(props: Props) {
               </View>
             ) : null
           ))}
+          {mixPreviews.map((result, i) => (
+            result && layout.positions[i] ? (
+              <View key={`mix-${shown.tubes[i].id}`} style={[styles.mixBadge, { pointerEvents: 'none' }, { left: layout.positions[i].x - 14, width: layout.tubeW + 28, top: layout.positions[i].y - 22 }]}>
+                <View style={[styles.mixDot, { backgroundColor: palette[result] }]} />
+                <Text maxFontSizeMultiplier={1.3} style={styles.mixText}>{COLOR_NAMES[result].toUpperCase()}</Text>
+              </View>
+            ) : null
+          ))}
           {props.highlight && props.highlight.length > 0 && <HintRings cells={layout.cells} tubes={props.highlight} />}
           {shown.tubes.map((t, i) => (
             layout.cells[i] ? (
               <TubeHit
                 key={t.id} tube={t} index={i} total={shown.tubes.length} selected={selected === i}
-                extra={t.locked ? lockTexts[i] : catalystColors[i] && !t.catalystSpent ? 'catalyst' : undefined}
+                extra={t.locked ? lockTexts[i] : mixPreviews[i] ? `pouring here mixes ${COLOR_NAMES[mixPreviews[i]!].toLowerCase()}` : catalystColors[i] && !t.catalystSpent ? 'catalyst' : undefined}
                 cell={layout.cells[i]} onPress={handleTap}
               />
             ) : null
@@ -430,5 +447,8 @@ export function GameBoard(props: Props) {
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   badge: { position: 'absolute', alignItems: 'center' },
+  mixBadge: { position: 'absolute', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
+  mixDot: { width: 10, height: 10, borderRadius: 5, borderWidth: 1, borderColor: 'rgba(255,255,255,0.7)' },
+  mixText: { color: '#FFFFFF', fontSize: 10, fontWeight: '800', letterSpacing: 0.5, textShadowColor: '#000', textShadowRadius: 4 },
   badgeText: { color: '#27E3F2', fontSize: 10, fontWeight: '800', letterSpacing: 0.5, textAlign: 'center', textShadowColor: '#000', textShadowRadius: 4 },
 });

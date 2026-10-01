@@ -41,3 +41,18 @@ describe('tutorial on level 1', () => {
     expect(advanceTutorial(2, { type: 'pour', from: 1, to: 3 }, s)).toBe(2); // T4 empty before any pour
   });
 });
+
+describe('mixing tutorial', () => {
+  const { advanceMixTutorial } = jest.requireActual('../../src/game/tutorial') as typeof import('../../src/game/tutorial');
+  it('advances on a select, then a mixing pour, then any pour', () => {
+    const select = { type: 'select', tube: 0 } as const;
+    const pour = { type: 'pour', from: 0, to: 1 } as const;
+    expect(advanceMixTutorial(0, { type: 'shake', tube: 0, warn: false }, false)).toBe(0);
+    expect(advanceMixTutorial(0, select, false)).toBe(1);
+    expect(advanceMixTutorial(1, pour, false)).toBe(1); // a plain pour is not a mix
+    expect(advanceMixTutorial(1, pour, true)).toBe(2);
+    expect(advanceMixTutorial(2, select, false)).toBe(2);
+    expect(advanceMixTutorial(2, pour, false)).toBe(3);
+    expect(advanceMixTutorial(3, select, false)).toBe(3);
+  });
+});

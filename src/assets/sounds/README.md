@@ -14,6 +14,7 @@ Every file here is a **silent placeholder** with its final name. No audio was do
 | `coin.wav` | Short sparkle ping. | about 0.3 s |
 | `reveal.wav` | Airy dissolve with a soft sparkle. | about 0.6 s |
 | `thaw.wav` | Ice crack followed by a soft melt. | about 0.9 s |
+| `mix.wav` | Soft bubbling fizz resolving into a gentle two-note chime: two colours becoming a new one. | about 0.5 s |
 | `ambient_lab.wav` | Calm, seamless ambient lab loop. Played at 30% volume by default and ducked during the win sequence. | 60 s or more, loopable |
 
 Regenerate the silent placeholders with `npx tsx scripts/make-placeholder-sounds.ts` (this overwrites real files, so do not run it after adding real audio).

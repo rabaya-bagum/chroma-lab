@@ -8,7 +8,8 @@ import { leaveGame, playLevel } from '../../utils/navigation';
 
 export default function GameRoute() {
   const { levelId, tutorial } = useLocalSearchParams<{ levelId: string; tutorial?: string }>();
-  const sessionLevel = useGameStore((s) => (s.session?.level.id === levelId ? s.session.level : null));
+  // levelId can be undefined, and undefined === undefined must not match a missing session
+  const sessionLevel = useGameStore((s) => (s.session && s.session.level.id === levelId ? s.session.level : null));
   // the daily puzzle is not part of LEVELS; it comes from the prepared session
   const level = LEVELS.find((l) => l.id === levelId) ?? sessionLevel ?? undefined;
   const hasSession = !!sessionLevel;

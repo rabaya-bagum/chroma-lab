@@ -18,7 +18,7 @@ export const PATTERN_FOR: Record<LiquidColor, PatternKind> = {
 };
 
 /** Dots are filled shapes; everything else is drawn as strokes. */
-export const isFilledPattern = (k: PatternKind): boolean => k === 'dots';
+export const isFilledPattern = (k: PatternKind): boolean => { 'worklet'; return k === 'dots'; };
 
 const cache = new Map<string, SkPath>();
 

@@ -47,6 +47,8 @@ export default function RootLayout() {
     <SafeAreaProvider>
       {ready ? (
         <Stack screenOptions={{ headerShown: false, animation: 'fade', contentStyle: { backgroundColor: theme.bg } }}>
+          {/* index first: the stack mounts after the splash, so on Android it opens its first declared screen */}
+          <Stack.Screen name="index" />
           <Stack.Screen name="game/[levelId]" options={{ gestureEnabled: false }} />
         </Stack>
       ) : (

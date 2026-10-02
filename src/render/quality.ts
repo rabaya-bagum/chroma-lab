@@ -46,7 +46,7 @@ export function qualityStep(s: number[], dtMs: number): number {
 }
 
 /** Idle shimmer period (seconds) for a tier; 0 means every frame. */
-export const idlePhasePeriod = (tier: number): number => (tier === QUALITY_LITE ? 1 / 20 : 0);
+export const idlePhasePeriod = (tier: number): number => { 'worklet'; return tier === QUALITY_LITE ? 1 / 20 : 0; };
 
 /** Particles for a burst of `n` at this tier. */
 export const burstCount = (n: number, tier: number): number => (tier === QUALITY_LITE ? Math.ceil(n / 2) : n);

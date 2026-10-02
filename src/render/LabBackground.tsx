@@ -16,8 +16,9 @@ const DECOR = [
   { color: LIQUID_HEX.green, level: 0.78, x: 0.82 },
 ];
 
-// deterministic pseudo-random per index so the layout is stable between renders
-const rnd = (i: number, k: number) => { const x = Math.sin(i * 127.1 + k * 311.7) * 43758.5453; return x - Math.floor(x); };
+// deterministic pseudo-random per index so the layout is stable between renders;
+// a worklet because the particle and bubble paths call it on the UI thread
+const rnd = (i: number, k: number) => { 'worklet'; const x = Math.sin(i * 127.1 + k * 311.7) * 43758.5453; return x - Math.floor(x); };
 
 /**
  * Home background: a dim lab bench with blurred equipment silhouettes, decorative

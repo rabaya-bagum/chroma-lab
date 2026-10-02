@@ -1,6 +1,7 @@
 /** Colour helpers for liquid shading. */
 
 function parse(hex: string): [number, number, number] {
+  'worklet';
   const n = parseInt(hex.slice(1), 16);
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
@@ -18,6 +19,7 @@ export function shade(hex: string, amount: number): string {
 
 /** Ink colour (dark or light) that reads on top of `hex`; used for labels and patterns. */
 export function inkFor(hex: string): string {
+  'worklet';
   const [r, g, b] = parse(hex);
   return 0.299 * r + 0.587 * g + 0.114 * b > 150 ? '#0A1020' : '#FFFFFF';
 }

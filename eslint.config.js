@@ -11,8 +11,14 @@ module.exports = defineConfig([
     },
   },
   {
+    // A non-worklet called from a worklet aborts the app on the UI thread.
+    files: ['src/**/*.{ts,tsx}'],
+    plugins: { worklets: require('./eslint/worklets') },
+    rules: { 'worklets/no-js-call-in-worklet': 'error' },
+  },
+  {
     // Plain Node scripts (CommonJS) run outside Metro.
-    files: ['scripts/**/*.js'],
+    files: ['scripts/**/*.js', 'eslint/**/*.js'],
     languageOptions: {
       sourceType: 'commonjs',
       globals: { __dirname: 'readonly', require: 'readonly', process: 'readonly', console: 'readonly', module: 'writable' },
